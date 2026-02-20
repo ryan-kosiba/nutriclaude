@@ -1,0 +1,361 @@
+from __future__ import annotations
+
+import os
+import json
+import logging
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+
+import anthropic
+
+from services.supabase_service import get_client
+
+logger = logging.getLogger("nutriclaude.aggregation")
+
+def _user_id() -> str:
+    return os.getenv("TELEGRAM_USER_ID", "")
+
+
+EASTERN = timezone(timedelta(hours=-5))
+
+
+def _parse_range(range_str: str) -> datetime:
+    """Convert a range string like '7d', '14d', '30d' to a start datetime."""
+    days = int(range_str.rstrip("d"))
+    return datetime.now(EASTERN) - timedelta(days=days)
+
+
+def _date_key(ts: str) -> str:
+    """Extract YYYY-MM-DD from an ISO timestamp string."""
+    return ts[:10]
+
+
+def fetch_meals(range_str: str = "7d") -> List[dict]:
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    result = (
+        client.table("meals")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .order("timestamp")
+        .execute()
+    )
+    return result.data
+
+
+def fetch_workouts(range_str: str = "7d") -> List[dict]:
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    result = (
+        client.table("workouts")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .order("timestamp")
+        .execute()
+    )
+    return result.data
+
+
+def fetch_bodyweight(range_str: str = "30d") -> List[dict]:
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    result = (
+        client.table("bodyweight")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .order("timestamp")
+        .execute()
+    )
+    return result.data
+
+
+def fetch_wellness(range_str: str = "7d") -> List[dict]:
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    result = (
+        client.table("wellness")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .order("timestamp")
+        .execute()
+    )
+    return result.data
+
+
+def fetch_workout_quality(range_str: str = "7d") -> List[dict]:
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    result = (
+        client.table("workout_quality")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .order("timestamp")
+        .execute()
+    )
+    return result.data
+
+
+def compute_kpis(range_str: str = "7d") -> dict:
+    meals = fetch_meals(range_str)
+    workouts = fetch_workouts(range_str)
+    bodyweight = fetch_bodyweight(range_str)
+    wellness = fetch_wellness(range_str)
+    workout_quality = fetch_workout_quality(range_str)
+
+    # Group meals by day
+    daily_cals: Dict[str, int] = defaultdict(int)
+    daily_protein: Dict[str, int] = defaultdict(int)
+    for m in meals:
+        day = _date_key(m["timestamp"])
+        daily_cals[day] += m.get("calories", 0)
+        daily_protein[day] += m.get("protein_g", 0)
+
+    num_days = len(daily_cals) or 1
+    avg_daily_calories = round(sum(daily_cals.values()) / num_days)
+    avg_daily_protein = round(sum(daily_protein.values()) / num_days)
+
+    # Current weight (most recent entry across any range)
+    current_weight = None
+    if bodyweight:
+        current_weight = bodyweight[-1].get("weight_lbs")
+    else:
+        # Try fetching most recent weight ever
+        client = get_client()
+        result = (
+            client.table("bodyweight")
+            .select("weight_lbs")
+            .eq("user_id", _user_id())
+            .order("timestamp", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            current_weight = result.data[0]["weight_lbs"]
+
+    # Calorie balance: total intake - total workout burn (simplified, no BMR)
+    total_intake = sum(daily_cals.values())
+    total_burned = sum(w.get("estimated_calories_burned", 0) for w in workouts)
+    calorie_balance = total_intake - total_burned
+
+    # Average fatigue
+    avg_fatigue = None
+    if wellness:
+        avg_fatigue = round(sum(w["fatigue_score"] for w in wellness) / len(wellness), 1)
+
+    # Average workout performance
+    avg_performance = None
+    if workout_quality:
+        avg_performance = round(
+            sum(w["performance_score"] for w in workout_quality) / len(workout_quality), 1
+        )
+
+    return {
+        "avg_daily_calories": avg_daily_calories,
+        "avg_daily_protein": avg_daily_protein,
+        "current_weight": current_weight,
+        "calorie_balance": calorie_balance,
+        "avg_fatigue": avg_fatigue,
+        "avg_performance": avg_performance,
+    }
+
+
+def compute_daily_meals(range_str: str = "7d") -> List[dict]:
+    meals = fetch_meals(range_str)
+    daily: Dict[str, Dict[str, int]] = defaultdict(lambda: {
+        "calories": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0,
+    })
+    for m in meals:
+        day = _date_key(m["timestamp"])
+        daily[day]["calories"] += m.get("calories", 0)
+        daily[day]["protein_g"] += m.get("protein_g", 0)
+        daily[day]["carbs_g"] += m.get("carbs_g", 0)
+        daily[day]["fat_g"] += m.get("fat_g", 0)
+
+    return [
+        {"date": day, **macros}
+        for day, macros in sorted(daily.items())
+    ]
+
+
+def compute_calorie_balance(range_str: str = "7d") -> List[dict]:
+    meals = fetch_meals(range_str)
+    workouts = fetch_workouts(range_str)
+
+    daily_intake: Dict[str, int] = defaultdict(int)
+    daily_burn: Dict[str, int] = defaultdict(int)
+
+    for m in meals:
+        day = _date_key(m["timestamp"])
+        daily_intake[day] += m.get("calories", 0)
+
+    for w in workouts:
+        day = _date_key(w["timestamp"])
+        daily_burn[day] += w.get("estimated_calories_burned", 0)
+
+    all_days = sorted(set(daily_intake.keys()) | set(daily_burn.keys()))
+    return [
+        {
+            "date": day,
+            "intake": daily_intake[day],
+            "burned": daily_burn[day],
+            "net": daily_intake[day] - daily_burn[day],
+        }
+        for day in all_days
+    ]
+
+
+def fetch_daily(date_str: str) -> dict:
+    """Fetch all data for a specific date (YYYY-MM-DD)."""
+    start = f"{date_str}T00:00:00-05:00"
+    end = f"{date_str}T23:59:59-05:00"
+    client = get_client()
+
+    meals = (
+        client.table("meals")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .lte("timestamp", end)
+        .order("timestamp")
+        .execute()
+    ).data
+
+    workouts = (
+        client.table("workouts")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .lte("timestamp", end)
+        .order("timestamp")
+        .execute()
+    ).data
+
+    wellness = (
+        client.table("wellness")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .lte("timestamp", end)
+        .execute()
+    ).data
+
+    workout_quality = (
+        client.table("workout_quality")
+        .select("*")
+        .eq("user_id", _user_id())
+        .gte("timestamp", start)
+        .lte("timestamp", end)
+        .execute()
+    ).data
+
+    # Aggregate macros
+    total_calories = sum(m.get("calories", 0) for m in meals)
+    total_protein = sum(m.get("protein_g", 0) for m in meals)
+    total_carbs = sum(m.get("carbs_g", 0) for m in meals)
+    total_fat = sum(m.get("fat_g", 0) for m in meals)
+
+    # Workout summary
+    workout_info = None
+    if workouts:
+        w = workouts[0]
+        workout_info = {
+            "description": w.get("description", ""),
+            "calories_burned": w.get("estimated_calories_burned", 0),
+            "intensity": w.get("intensity_score"),
+        }
+
+    # Performance score
+    performance = None
+    if workout_quality:
+        performance = workout_quality[0].get("performance_score")
+
+    # Fatigue
+    fatigue = None
+    if wellness:
+        fatigue = wellness[0].get("fatigue_score")
+
+    return {
+        "date": date_str,
+        "calories": total_calories,
+        "protein_g": total_protein,
+        "carbs_g": total_carbs,
+        "fat_g": total_fat,
+        "meals": [
+            {
+                "description": m.get("description", ""),
+                "calories": m.get("calories", 0),
+                "protein_g": m.get("protein_g", 0),
+                "carbs_g": m.get("carbs_g", 0),
+                "fat_g": m.get("fat_g", 0),
+                "timestamp": m.get("timestamp", ""),
+            }
+            for m in meals
+        ],
+        "workout": workout_info,
+        "performance": performance,
+        "fatigue": fatigue,
+    }
+
+
+def get_logged_dates(range_str: str = "7d") -> List[str]:
+    """Return sorted list of unique dates that have any logged data."""
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+
+    dates = set()
+    for table in ["meals", "workouts", "bodyweight", "wellness", "workout_quality"]:
+        result = (
+            client.table(table)
+            .select("timestamp")
+            .eq("user_id", _user_id())
+            .gte("timestamp", start)
+            .execute()
+        )
+        for row in result.data:
+            dates.add(row["timestamp"][:10])
+
+    return sorted(dates)
+
+
+async def generate_summary() -> str:
+    meals = fetch_meals("7d")
+    workouts = fetch_workouts("7d")
+    wellness = fetch_wellness("7d")
+    workout_quality = fetch_workout_quality("7d")
+    bodyweight = fetch_bodyweight("7d")
+
+    if not any([meals, workouts, wellness, workout_quality, bodyweight]):
+        return "No data logged in the past 7 days. Start logging via Telegram to see your weekly summary!"
+
+    data_summary = {
+        "meals": meals,
+        "workouts": workouts,
+        "wellness": wellness,
+        "workout_quality": workout_quality,
+        "bodyweight": bodyweight,
+    }
+
+    prompt = f"""Analyze this week's fitness and nutrition data and provide a brief, insightful summary (3-5 sentences).
+Focus on patterns, correlations, and observations. Be conversational and encouraging, not clinical.
+Do NOT give warnings or medical advice. Just share interesting patterns you notice.
+
+Data:
+{json.dumps(data_summary, indent=2, default=str)}"""
+
+    try:
+        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text
+    except Exception as e:
+        logger.error(f"Summary generation failed: {e}")
+        return "Unable to generate summary at this time."
