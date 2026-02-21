@@ -3,21 +3,36 @@ from __future__ import annotations
 
 import os
 import logging
+from datetime import datetime, timedelta, timezone
 
+import jwt
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
+from config.settings import JWT_SECRET, APP_URL
 from services.claude_service import extract_log
-from services.supabase_service import create_pending_log, confirm_log, delete_pending_log
+from services.supabase_service import create_pending_log, confirm_log, delete_pending_log, get_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nutriclaude.bot")
 
-# Your Telegram user ID — set this after first run to restrict access
-ALLOWED_USER_ID = os.getenv("TELEGRAM_USER_ID", "")
+
+def _upsert_user(telegram_id: str, display_name: str) -> None:
+    """Create or update user in users table."""
+    client = get_client()
+    existing = client.table("users").select("id").eq("telegram_id", telegram_id).execute()
+    if not existing.data:
+        client.table("users").insert({
+            "telegram_id": telegram_id,
+            "display_name": display_name,
+        }).execute()
+    elif display_name:
+        client.table("users").update({
+            "display_name": display_name,
+        }).eq("telegram_id", telegram_id).execute()
 
 
 def format_confirmation(log_type: str, data: dict) -> str:
@@ -51,19 +66,45 @@ def format_confirmation(log_type: str, data: dict) -> str:
 
 
 async def start_command(update: Update, context) -> None:
-    """Handle /start command."""
-    user_id = update.effective_user.id
+    """Handle /start command — register user and show welcome."""
+    user = update.effective_user
+    telegram_id = str(user.id)
+    display_name = user.full_name or user.username or ""
+
+    _upsert_user(telegram_id, display_name)
+
     await update.message.reply_text(
-        f"Welcome to Nutriclaude!\n\n"
+        f"Welcome to Nutriclaude, {display_name}!\n\n"
         f"Send me a natural language message to log:\n"
         f"- Meals (e.g., 'Had a chipotle bowl')\n"
         f"- Workouts (e.g., 'Did chest day for an hour')\n"
         f"- Bodyweight (e.g., 'Weighed 182.4')\n"
         f"- Fatigue (e.g., 'Fatigue 7 out of 10')\n"
         f"- Workout quality (e.g., 'Session was 9/10')\n\n"
-        f"You can also log multiple entries in one message!\n"
-        f"e.g., 'Had oatmeal for breakfast, chipotle for lunch, did legs for an hour'\n\n"
-        f"Your Telegram ID: {user_id}"
+        f"Use /login to get a link to your personal dashboard."
+    )
+
+
+async def login_command(update: Update, context) -> None:
+    """Generate a magic link for dashboard access."""
+    user = update.effective_user
+    telegram_id = str(user.id)
+    display_name = user.full_name or user.username or ""
+
+    _upsert_user(telegram_id, display_name)
+
+    # Generate magic link JWT (5 min expiry)
+    token_payload = {
+        "telegram_id": telegram_id,
+        "display_name": display_name,
+        "type": "magic_link",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+    }
+    token = jwt.encode(token_payload, JWT_SECRET, algorithm="HS256")
+    link = f"{APP_URL}/auth?token={token}"
+
+    await update.message.reply_text(
+        f"Here's your dashboard link (valid for 5 minutes):\n\n{link}"
     )
 
 
@@ -71,11 +112,6 @@ async def handle_message(update: Update, context) -> None:
     """Handle incoming text messages."""
     user_id = str(update.effective_user.id)
     chat_id = str(update.effective_chat.id)
-
-    # Restrict to allowed user if set
-    if ALLOWED_USER_ID and user_id != ALLOWED_USER_ID:
-        await update.message.reply_text("Unauthorized.")
-        return
 
     message_text = update.message.text
     await update.message.reply_text("Processing...")
@@ -139,7 +175,7 @@ async def handle_callback(update: Update, context) -> None:
 
 
 def main():
-    """Start the bot with polling."""
+    """Start the bot with polling (for standalone local dev)."""
     token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN not set")
@@ -148,6 +184,7 @@ def main():
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("login", login_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(handle_callback))
 

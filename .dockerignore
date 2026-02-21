@@ -1,0 +1,10 @@
+.env
+.git
+.claude/
+myenv/
+__pycache__/
+node_modules/
+frontend/dist/
+*.md
+dashboard.png
+.vscode/

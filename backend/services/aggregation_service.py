@@ -5,17 +5,13 @@ import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 import anthropic
 
 from services.supabase_service import get_client
 
 logger = logging.getLogger("nutriclaude.aggregation")
-
-def _user_id() -> str:
-    return os.getenv("TELEGRAM_USER_ID", "")
-
 
 EASTERN = timezone(timedelta(hours=-5))
 
@@ -31,13 +27,13 @@ def _date_key(ts: str) -> str:
     return ts[:10]
 
 
-def fetch_meals(range_str: str = "7d") -> List[dict]:
+def fetch_meals(user_id: str, range_str: str = "7d") -> List[dict]:
     start = _parse_range(range_str).isoformat()
     client = get_client()
     result = (
         client.table("meals")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .order("timestamp")
         .execute()
@@ -45,13 +41,13 @@ def fetch_meals(range_str: str = "7d") -> List[dict]:
     return result.data
 
 
-def fetch_workouts(range_str: str = "7d") -> List[dict]:
+def fetch_workouts(user_id: str, range_str: str = "7d") -> List[dict]:
     start = _parse_range(range_str).isoformat()
     client = get_client()
     result = (
         client.table("workouts")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .order("timestamp")
         .execute()
@@ -59,13 +55,13 @@ def fetch_workouts(range_str: str = "7d") -> List[dict]:
     return result.data
 
 
-def fetch_bodyweight(range_str: str = "30d") -> List[dict]:
+def fetch_bodyweight(user_id: str, range_str: str = "30d") -> List[dict]:
     start = _parse_range(range_str).isoformat()
     client = get_client()
     result = (
         client.table("bodyweight")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .order("timestamp")
         .execute()
@@ -73,13 +69,13 @@ def fetch_bodyweight(range_str: str = "30d") -> List[dict]:
     return result.data
 
 
-def fetch_wellness(range_str: str = "7d") -> List[dict]:
+def fetch_wellness(user_id: str, range_str: str = "7d") -> List[dict]:
     start = _parse_range(range_str).isoformat()
     client = get_client()
     result = (
         client.table("wellness")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .order("timestamp")
         .execute()
@@ -87,13 +83,13 @@ def fetch_wellness(range_str: str = "7d") -> List[dict]:
     return result.data
 
 
-def fetch_workout_quality(range_str: str = "7d") -> List[dict]:
+def fetch_workout_quality(user_id: str, range_str: str = "7d") -> List[dict]:
     start = _parse_range(range_str).isoformat()
     client = get_client()
     result = (
         client.table("workout_quality")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .order("timestamp")
         .execute()
@@ -101,12 +97,12 @@ def fetch_workout_quality(range_str: str = "7d") -> List[dict]:
     return result.data
 
 
-def compute_kpis(range_str: str = "7d") -> dict:
-    meals = fetch_meals(range_str)
-    workouts = fetch_workouts(range_str)
-    bodyweight = fetch_bodyweight(range_str)
-    wellness = fetch_wellness(range_str)
-    workout_quality = fetch_workout_quality(range_str)
+def compute_kpis(user_id: str, range_str: str = "7d") -> dict:
+    meals = fetch_meals(user_id, range_str)
+    workouts = fetch_workouts(user_id, range_str)
+    bodyweight = fetch_bodyweight(user_id, range_str)
+    wellness = fetch_wellness(user_id, range_str)
+    workout_quality = fetch_workout_quality(user_id, range_str)
 
     # Group meals by day
     daily_cals: Dict[str, int] = defaultdict(int)
@@ -125,12 +121,11 @@ def compute_kpis(range_str: str = "7d") -> dict:
     if bodyweight:
         current_weight = bodyweight[-1].get("weight_lbs")
     else:
-        # Try fetching most recent weight ever
         client = get_client()
         result = (
             client.table("bodyweight")
             .select("weight_lbs")
-            .eq("user_id", _user_id())
+            .eq("user_id", user_id)
             .order("timestamp", desc=True)
             .limit(1)
             .execute()
@@ -138,7 +133,7 @@ def compute_kpis(range_str: str = "7d") -> dict:
         if result.data:
             current_weight = result.data[0]["weight_lbs"]
 
-    # Calorie balance: total intake - total workout burn (simplified, no BMR)
+    # Calorie balance: total intake - total workout burn
     total_intake = sum(daily_cals.values())
     total_burned = sum(w.get("estimated_calories_burned", 0) for w in workouts)
     calorie_balance = total_intake - total_burned
@@ -165,8 +160,8 @@ def compute_kpis(range_str: str = "7d") -> dict:
     }
 
 
-def compute_daily_meals(range_str: str = "7d") -> List[dict]:
-    meals = fetch_meals(range_str)
+def compute_daily_meals(user_id: str, range_str: str = "7d") -> List[dict]:
+    meals = fetch_meals(user_id, range_str)
     daily: Dict[str, Dict[str, int]] = defaultdict(lambda: {
         "calories": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0,
     })
@@ -183,9 +178,9 @@ def compute_daily_meals(range_str: str = "7d") -> List[dict]:
     ]
 
 
-def compute_calorie_balance(range_str: str = "7d") -> List[dict]:
-    meals = fetch_meals(range_str)
-    workouts = fetch_workouts(range_str)
+def compute_calorie_balance(user_id: str, range_str: str = "7d") -> List[dict]:
+    meals = fetch_meals(user_id, range_str)
+    workouts = fetch_workouts(user_id, range_str)
 
     daily_intake: Dict[str, int] = defaultdict(int)
     daily_burn: Dict[str, int] = defaultdict(int)
@@ -210,7 +205,7 @@ def compute_calorie_balance(range_str: str = "7d") -> List[dict]:
     ]
 
 
-def fetch_daily(date_str: str) -> dict:
+def fetch_daily(user_id: str, date_str: str) -> dict:
     """Fetch all data for a specific date (YYYY-MM-DD)."""
     start = f"{date_str}T00:00:00-05:00"
     end = f"{date_str}T23:59:59-05:00"
@@ -219,7 +214,7 @@ def fetch_daily(date_str: str) -> dict:
     meals = (
         client.table("meals")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .lte("timestamp", end)
         .order("timestamp")
@@ -229,7 +224,7 @@ def fetch_daily(date_str: str) -> dict:
     workouts = (
         client.table("workouts")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .lte("timestamp", end)
         .order("timestamp")
@@ -239,7 +234,7 @@ def fetch_daily(date_str: str) -> dict:
     wellness = (
         client.table("wellness")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .lte("timestamp", end)
         .execute()
@@ -248,19 +243,17 @@ def fetch_daily(date_str: str) -> dict:
     workout_quality = (
         client.table("workout_quality")
         .select("*")
-        .eq("user_id", _user_id())
+        .eq("user_id", user_id)
         .gte("timestamp", start)
         .lte("timestamp", end)
         .execute()
     ).data
 
-    # Aggregate macros
     total_calories = sum(m.get("calories", 0) for m in meals)
     total_protein = sum(m.get("protein_g", 0) for m in meals)
     total_carbs = sum(m.get("carbs_g", 0) for m in meals)
     total_fat = sum(m.get("fat_g", 0) for m in meals)
 
-    # Workout summary
     workout_info = None
     if workouts:
         w = workouts[0]
@@ -270,12 +263,10 @@ def fetch_daily(date_str: str) -> dict:
             "intensity": w.get("intensity_score"),
         }
 
-    # Performance score
     performance = None
     if workout_quality:
         performance = workout_quality[0].get("performance_score")
 
-    # Fatigue
     fatigue = None
     if wellness:
         fatigue = wellness[0].get("fatigue_score")
@@ -303,7 +294,7 @@ def fetch_daily(date_str: str) -> dict:
     }
 
 
-def get_logged_dates(range_str: str = "7d") -> List[str]:
+def get_logged_dates(user_id: str, range_str: str = "7d") -> List[str]:
     """Return sorted list of unique dates that have any logged data."""
     start = _parse_range(range_str).isoformat()
     client = get_client()
@@ -313,7 +304,7 @@ def get_logged_dates(range_str: str = "7d") -> List[str]:
         result = (
             client.table(table)
             .select("timestamp")
-            .eq("user_id", _user_id())
+            .eq("user_id", user_id)
             .gte("timestamp", start)
             .execute()
         )
@@ -323,12 +314,12 @@ def get_logged_dates(range_str: str = "7d") -> List[str]:
     return sorted(dates)
 
 
-async def generate_summary() -> str:
-    meals = fetch_meals("7d")
-    workouts = fetch_workouts("7d")
-    wellness = fetch_wellness("7d")
-    workout_quality = fetch_workout_quality("7d")
-    bodyweight = fetch_bodyweight("7d")
+async def generate_summary(user_id: str) -> str:
+    meals = fetch_meals(user_id, "7d")
+    workouts = fetch_workouts(user_id, "7d")
+    wellness = fetch_wellness(user_id, "7d")
+    workout_quality = fetch_workout_quality(user_id, "7d")
+    bodyweight = fetch_bodyweight(user_id, "7d")
 
     if not any([meals, workouts, wellness, workout_quality, bodyweight]):
         return "No data logged in the past 7 days. Start logging via Telegram to see your weekly summary!"

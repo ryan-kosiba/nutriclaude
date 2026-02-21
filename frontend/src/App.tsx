@@ -1,16 +1,37 @@
 import { useState } from 'react'
+import { useAuth } from './AuthContext'
 import DailyView from './components/DailyView'
 import OverviewView from './components/OverviewView'
+import LoginPage from './components/LoginPage'
 
 type Tab = 'overview' | 'daily'
 
 function App() {
+  const { user, loading, logout } = useAuth()
   const [tab, setTab] = useState<Tab>('daily')
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <p className="text-text-muted">Loading...</p>
+      </div>
+    )
+  }
+
+  if (!user) return <LoginPage />
 
   return (
     <div className="min-h-screen bg-bg px-4 py-6 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-center mb-1">Health Tracking Dashboard</h1>
-      <p className="text-text-muted text-sm text-center mb-4">Nutriclaude</p>
+      <div className="flex justify-between items-center mb-1">
+        <div className="w-12" />
+        <h1 className="text-xl font-bold text-center">Health Tracking Dashboard</h1>
+        <button onClick={logout} className="text-xs text-text-muted hover:text-text w-12 text-right">
+          Logout
+        </button>
+      </div>
+      <p className="text-text-muted text-sm text-center mb-4">
+        {user.display_name || 'Nutriclaude'}
+      </p>
 
       {/* Tab bar */}
       <div className="flex justify-center gap-2 mb-6">

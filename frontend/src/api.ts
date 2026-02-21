@@ -1,7 +1,16 @@
 const BASE = '/api';
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const token = localStorage.getItem('session_token');
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(url, { headers });
+  if (res.status === 401 || res.status === 403) {
+    localStorage.removeItem('session_token');
+    window.location.href = '/';
+    throw new Error('Unauthorized');
+  }
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
