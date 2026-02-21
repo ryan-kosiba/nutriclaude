@@ -55,6 +55,15 @@ def format_confirmation(log_type: str, data: dict) -> str:
             f"Calories burned: {data.get('estimated_calories_burned', 'N/A')}"
             f"{intensity_str}"
         )
+    elif log_type == "exercise":
+        notes = data.get("notes")
+        notes_str = f"\n({notes})" if notes else ""
+        return (
+            f"Exercise logged:\n"
+            f"  {data.get('exercise_name', 'N/A')}\n\n"
+            f"{data.get('sets', 'N/A')} sets x {data.get('reps', 'N/A')} reps @ {data.get('weight_lbs', 'N/A')} lbs"
+            f"{notes_str}"
+        )
     elif log_type == "bodyweight":
         return f"Bodyweight logged:\n  {data.get('weight_lbs', 'N/A')} lbs"
     elif log_type == "wellness":

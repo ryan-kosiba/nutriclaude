@@ -6,7 +6,6 @@ import WeightChart from './WeightChart'
 import CalorieBalanceChart from './CalorieBalanceChart'
 import FatigueChart from './FatigueChart'
 import MacroTrendChart from './MacroTrendChart'
-import AiSummary from './AiSummary'
 
 export default function OverviewView() {
   const [kpis, setKpis] = useState<KpiData | null>(null)
@@ -14,9 +13,7 @@ export default function OverviewView() {
   const [calorieBalance, setCalorieBalance] = useState<CalorieBalanceEntry[]>([])
   const [wellness, setWellness] = useState<WellnessEntry[]>([])
   const [meals, setMeals] = useState<DailyMeal[]>([])
-  const [summary, setSummary] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [summaryLoading, setSummaryLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
@@ -33,12 +30,6 @@ export default function OverviewView() {
       setMeals(m)
       setLoading(false)
     })
-
-    // Load summary separately (it's slower due to Claude call)
-    api.summary().then((s) => {
-      setSummary(s.summary)
-      setSummaryLoading(false)
-    })
   }, [])
 
   if (loading) {
@@ -48,8 +39,6 @@ export default function OverviewView() {
   return (
     <div className="space-y-4">
       {kpis && <KpiCards data={kpis} />}
-
-      <AiSummary summary={summary} loading={summaryLoading} />
 
       {meals.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-4">

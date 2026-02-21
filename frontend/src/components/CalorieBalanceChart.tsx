@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import type { CalorieBalanceEntry } from '../api'
 
 interface Props {
@@ -12,18 +12,18 @@ export default function CalorieBalanceChart({ data }: Props) {
   }))
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={300}>
       <LineChart data={formatted}>
-        <XAxis dataKey="label" tick={{ fill: '#7a8a7a', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: '#7a8a7a', fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+        <XAxis dataKey="label" stroke="#666" style={{ fontSize: '12px' }} />
+        <YAxis stroke="#666" style={{ fontSize: '12px' }} />
         <Tooltip
-          contentStyle={{ background: '#111a11', border: '1px solid #1e2e1e', borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: '#e8f0e8' }}
+          contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, color: '#fff' }}
         />
-        <ReferenceLine y={0} stroke="#1e2e1e" strokeDasharray="3 3" />
-        <Line type="monotone" dataKey="intake" stroke="#4ade80" strokeWidth={2} dot={{ r: 3 }} name="Intake" />
-        <Line type="monotone" dataKey="burned" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} name="Burned" />
-        <Line type="monotone" dataKey="net" stroke="#facc15" strokeWidth={2} dot={{ r: 3 }} name="Net" />
+        <ReferenceLine y={0} stroke="#666" strokeDasharray="5 5" />
+        <Line type="monotone" dataKey="intake" stroke="#A2FF00" strokeWidth={3} dot={{ r: 4 }} name="Intake" />
+        <Line type="monotone" dataKey="burned" stroke="#E91E63" strokeWidth={3} dot={{ r: 4 }} name="Burned" />
+        <Line type="monotone" dataKey="net" stroke="#4FC3F7" strokeWidth={3} dot={{ r: 4 }} name="Net" />
       </LineChart>
     </ResponsiveContainer>
   )

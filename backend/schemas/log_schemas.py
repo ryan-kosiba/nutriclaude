@@ -42,6 +42,16 @@ class WorkoutQualityLog(BaseModel):
     performance_score: int = Field(ge=0, le=10)
 
 
+class ExerciseLog(BaseModel):
+    type: Literal["exercise"]
+    timestamp: datetime
+    exercise_name: str = Field(min_length=1)
+    sets: int = Field(ge=1)
+    reps: int = Field(ge=1)
+    weight_lbs: float = Field(ge=0)
+    notes: Optional[str] = None
+
+
 class UnknownLog(BaseModel):
     type: Literal["unknown"]
     timestamp: datetime
@@ -56,7 +66,7 @@ class PendingLog(BaseModel):
     created_at: Optional[datetime] = None
 
 
-LogEntry = Union[MealLog, WorkoutLog, BodyweightLog, WellnessLog, WorkoutQualityLog, UnknownLog]
+LogEntry = Union[MealLog, WorkoutLog, BodyweightLog, WellnessLog, WorkoutQualityLog, ExerciseLog, UnknownLog]
 
 
 def parse_log(data: dict) -> LogEntry:
@@ -68,6 +78,7 @@ def parse_log(data: dict) -> LogEntry:
         "bodyweight": BodyweightLog,
         "wellness": WellnessLog,
         "workout_quality": WorkoutQualityLog,
+        "exercise": ExerciseLog,
         "unknown": UnknownLog,
     }
     model = type_map.get(log_type)

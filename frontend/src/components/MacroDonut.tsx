@@ -6,7 +6,7 @@ interface Props {
   fat: number
 }
 
-const COLORS = ['#4ade80', '#facc15', '#fb923c']
+const COLORS = ['#4FC3F7', '#A2FF00', '#FF9800']
 
 export default function MacroDonut({ protein, carbs, fat }: Props) {
   const data = [
@@ -20,16 +20,16 @@ export default function MacroDonut({ protein, carbs, fat }: Props) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
+    <ResponsiveContainer width="100%" height={220}>
       <PieChart>
-        <Pie data={data} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" strokeWidth={0}>
+        <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" strokeWidth={0}>
           {data.map((_, i) => (
             <Cell key={i} fill={COLORS[i]} />
           ))}
         </Pie>
         <Legend
-          wrapperStyle={{ fontSize: 11 }}
-          formatter={(value: string) => <span style={{ color: '#e8f0e8' }}>{value}</span>}
+          wrapperStyle={{ fontSize: 12 }}
+          formatter={(value: string) => <span style={{ color: '#fff' }}>{value}</span>}
         />
       </PieChart>
     </ResponsiveContainer>

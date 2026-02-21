@@ -314,6 +314,123 @@ def get_logged_dates(user_id: str, range_str: str = "7d") -> List[str]:
     return sorted(dates)
 
 
+def fetch_all_logs(user_id: str, range_str: str = "30d", type_filter: str = "all") -> List[dict]:
+    """Fetch all log entries across all tables, merged and sorted by timestamp."""
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    entries = []
+
+    table_configs = {
+        "meal": ("meals", lambda r: {
+            "id": r["id"], "timestamp": r["timestamp"], "type": "meal",
+            "description": r.get("description", ""),
+            "value": f"{r.get('calories', 0)} kcal",
+            "protein": r.get("protein_g"), "carbs": r.get("carbs_g"), "fat": r.get("fat_g"),
+        }),
+        "workout": ("workouts", lambda r: {
+            "id": r["id"], "timestamp": r["timestamp"], "type": "workout",
+            "description": r.get("description", ""),
+            "value": f"{r.get('estimated_calories_burned', 0)} kcal burned",
+            "protein": None, "carbs": None, "fat": None,
+        }),
+        "exercise": ("exercises", lambda r: {
+            "id": r["id"], "timestamp": r["timestamp"], "type": "exercise",
+            "description": r.get("exercise_name", ""),
+            "value": f"{r.get('sets', 0)}x{r.get('reps', 0)} @ {r.get('weight_lbs', 0)} lbs",
+            "protein": None, "carbs": None, "fat": None,
+        }),
+        "weight": ("bodyweight", lambda r: {
+            "id": r["id"], "timestamp": r["timestamp"], "type": "weight",
+            "description": "Weigh-In",
+            "value": f"{r.get('weight_lbs', 0)} lbs",
+            "protein": None, "carbs": None, "fat": None,
+        }),
+        "wellness": ("wellness", lambda r: {
+            "id": r["id"], "timestamp": r["timestamp"], "type": "wellness",
+            "description": "Fatigue Score",
+            "value": f"{r.get('fatigue_score', 0)}/10",
+            "protein": None, "carbs": None, "fat": None,
+        }),
+    }
+
+    types_to_fetch = [type_filter] if type_filter != "all" else list(table_configs.keys())
+
+    for t in types_to_fetch:
+        if t not in table_configs:
+            continue
+        table_name, transform = table_configs[t]
+        result = (
+            client.table(table_name)
+            .select("*")
+            .eq("user_id", user_id)
+            .gte("timestamp", start)
+            .order("timestamp", desc=True)
+            .execute()
+        )
+        for row in result.data:
+            entries.append(transform(row))
+
+    entries.sort(key=lambda x: x["timestamp"], reverse=True)
+    return entries
+
+
+def fetch_exercises(user_id: str, range_str: str = "30d") -> List[dict]:
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    result = (
+        client.table("exercises")
+        .select("*")
+        .eq("user_id", user_id)
+        .gte("timestamp", start)
+        .order("timestamp", desc=True)
+        .execute()
+    )
+    return result.data
+
+
+def fetch_exercise_names(user_id: str) -> List[str]:
+    client = get_client()
+    result = (
+        client.table("exercises")
+        .select("exercise_name")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return sorted(set(row["exercise_name"] for row in result.data))
+
+
+def fetch_exercise_history(user_id: str, exercise_name: str, range_str: str = "90d") -> List[dict]:
+    start = _parse_range(range_str).isoformat()
+    client = get_client()
+    result = (
+        client.table("exercises")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("exercise_name", exercise_name)
+        .gte("timestamp", start)
+        .order("timestamp")
+        .execute()
+    )
+    return result.data
+
+
+def compute_exercise_prs(user_id: str) -> List[dict]:
+    client = get_client()
+    result = (
+        client.table("exercises")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("weight_lbs", desc=True)
+        .execute()
+    )
+    prs = {}
+    for row in result.data:
+        name = row["exercise_name"]
+        if name not in prs or row["weight_lbs"] > prs[name]["weight_lbs"]:
+            prs[name] = row
+    return sorted(prs.values(), key=lambda x: x["exercise_name"])
+
+
 async def generate_summary(user_id: str) -> str:
     meals = fetch_meals(user_id, "7d")
     workouts = fetch_workouts(user_id, "7d")

@@ -70,6 +70,44 @@ export interface DailyData {
   fatigue: number | null;
 }
 
+export interface ExerciseEntry {
+  date: string;
+  timestamp: string;
+  exercise_name: string;
+  sets: number;
+  reps: number;
+  weight_lbs: number;
+  notes: string | null;
+}
+
+export interface ExerciseHistoryPoint {
+  date: string;
+  timestamp: string;
+  sets: number;
+  reps: number;
+  weight_lbs: number;
+  notes: string | null;
+}
+
+export interface ExercisePR {
+  exercise_name: string;
+  weight_lbs: number;
+  sets: number;
+  reps: number;
+  date: string;
+}
+
+export interface LogHistoryEntry {
+  id: string;
+  timestamp: string;
+  type: 'meal' | 'workout' | 'exercise' | 'weight' | 'wellness';
+  description: string;
+  value: string;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}
+
 export const api = {
   kpis: (range = '7d') => fetchJson<KpiData>(`${BASE}/kpis?range=${range}`),
   meals: (range = '7d') => fetchJson<DailyMeal[]>(`${BASE}/meals?range=${range}`),
@@ -79,4 +117,11 @@ export const api = {
   summary: () => fetchJson<{ summary: string }>(`${BASE}/summary`),
   daily: (date: string) => fetchJson<DailyData>(`${BASE}/daily?date=${date}`),
   dates: (range = '7d') => fetchJson<string[]>(`${BASE}/dates?range=${range}`),
+  logHistory: (range = '30d', type = 'all') =>
+    fetchJson<LogHistoryEntry[]>(`${BASE}/log-history?range=${range}&type=${type}`),
+  exercises: (range = '30d') => fetchJson<ExerciseEntry[]>(`${BASE}/exercises?range=${range}`),
+  exerciseNames: () => fetchJson<string[]>(`${BASE}/exercise-names`),
+  exerciseHistory: (name: string, range = '90d') =>
+    fetchJson<ExerciseHistoryPoint[]>(`${BASE}/exercise-history?name=${encodeURIComponent(name)}&range=${range}`),
+  exercisePRs: () => fetchJson<ExercisePR[]>(`${BASE}/exercise-prs`),
 };

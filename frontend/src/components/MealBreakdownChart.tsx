@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import type { MealDetail } from '../api'
 
 interface Props {
@@ -14,7 +14,6 @@ function mealLabel(ts: string): string {
 }
 
 export default function MealBreakdownChart({ meals }: Props) {
-  // Group meals by time-of-day bucket
   const buckets: Record<string, { calories: number; protein_g: number }> = {}
   const order = ['Morning', 'Midday', 'Afternoon', 'Evening']
 
@@ -28,17 +27,17 @@ export default function MealBreakdownChart({ meals }: Props) {
   const data = order.filter((l) => buckets[l]).map((label) => ({ label, ...buckets[label] }))
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
+    <ResponsiveContainer width="100%" height={250}>
       <BarChart data={data}>
-        <XAxis dataKey="label" tick={{ fill: '#7a8a7a', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: '#7a8a7a', fontSize: 11 }} axisLine={false} tickLine={false} width={35} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+        <XAxis dataKey="label" stroke="#666" style={{ fontSize: '12px' }} />
+        <YAxis stroke="#666" style={{ fontSize: '12px' }} />
         <Tooltip
-          contentStyle={{ background: '#111a11', border: '1px solid #1e2e1e', borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: '#e8f0e8' }}
+          contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, color: '#fff' }}
         />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
-        <Bar dataKey="calories" fill="#4ade80" radius={[4, 4, 0, 0]} name="Calories" />
-        <Bar dataKey="protein_g" fill="#a78bfa" radius={[4, 4, 0, 0]} name="Protein (g)" />
+        <Legend wrapperStyle={{ fontSize: '14px' }} />
+        <Bar dataKey="calories" fill="#A2FF00" radius={[4, 4, 0, 0]} name="Calories" />
+        <Bar dataKey="protein_g" fill="#4FC3F7" radius={[4, 4, 0, 0]} name="Protein (g)" />
       </BarChart>
     </ResponsiveContainer>
   )

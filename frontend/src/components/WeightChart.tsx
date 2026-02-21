@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { WeightEntry } from '../api'
 
 interface Props {
@@ -12,21 +12,16 @@ export default function WeightChart({ data }: Props) {
   }))
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={300}>
       <LineChart data={formatted}>
-        <XAxis dataKey="label" tick={{ fill: '#7a8a7a', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis
-          domain={['dataMin - 2', 'dataMax + 2']}
-          tick={{ fill: '#7a8a7a', fontSize: 11 }}
-          axisLine={false}
-          tickLine={false}
-          width={40}
-        />
+        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+        <XAxis dataKey="label" stroke="#666" style={{ fontSize: '12px' }} />
+        <YAxis domain={['dataMin - 2', 'dataMax + 2']} stroke="#666" style={{ fontSize: '12px' }} />
         <Tooltip
-          contentStyle={{ background: '#111a11', border: '1px solid #1e2e1e', borderRadius: 8, fontSize: 12 }}
-          labelStyle={{ color: '#e8f0e8' }}
+          contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, color: '#fff' }}
+          formatter={(value) => [`${value} lbs`, 'Weight']}
         />
-        <Line type="monotone" dataKey="weight_lbs" stroke="#60a5fa" strokeWidth={2} dot={{ fill: '#60a5fa', r: 3 }} name="Weight (lbs)" />
+        <Line type="monotone" dataKey="weight_lbs" stroke="#4FC3F7" strokeWidth={3} dot={{ fill: '#4FC3F7', r: 4 }} activeDot={{ r: 6 }} name="Weight (lbs)" />
       </LineChart>
     </ResponsiveContainer>
   )

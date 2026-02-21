@@ -13,6 +13,11 @@ from services.aggregation_service import (
     fetch_daily,
     get_logged_dates,
     generate_summary,
+    fetch_all_logs,
+    fetch_exercises,
+    fetch_exercise_names,
+    fetch_exercise_history,
+    compute_exercise_prs,
 )
 
 router = APIRouter()
@@ -81,3 +86,57 @@ async def get_dates(range: str = Query("7d", pattern=r"^\d+d$"), user: dict = De
 @router.get("/calorie-balance")
 async def get_calorie_balance(range: str = Query("7d", pattern=r"^\d+d$"), user: dict = Depends(get_current_user)):
     return compute_calorie_balance(user["telegram_id"], range)
+
+
+@router.get("/log-history")
+async def get_log_history(
+    range: str = Query("30d", pattern=r"^\d+d$"),
+    type: str = Query("all"),
+    user: dict = Depends(get_current_user),
+):
+    return fetch_all_logs(user["telegram_id"], range, type)
+
+
+@router.get("/exercises")
+async def get_exercises(range: str = Query("30d", pattern=r"^\d+d$"), user: dict = Depends(get_current_user)):
+    return fetch_exercises(user["telegram_id"], range)
+
+
+@router.get("/exercise-names")
+async def get_exercise_names(user: dict = Depends(get_current_user)):
+    return fetch_exercise_names(user["telegram_id"])
+
+
+@router.get("/exercise-history")
+async def get_exercise_history(
+    name: str = Query(..., min_length=1),
+    range: str = Query("90d", pattern=r"^\d+d$"),
+    user: dict = Depends(get_current_user),
+):
+    data = fetch_exercise_history(user["telegram_id"], name, range)
+    return [
+        {
+            "date": row["timestamp"][:10],
+            "timestamp": row["timestamp"],
+            "sets": row["sets"],
+            "reps": row["reps"],
+            "weight_lbs": float(row["weight_lbs"]),
+            "notes": row.get("notes"),
+        }
+        for row in data
+    ]
+
+
+@router.get("/exercise-prs")
+async def get_exercise_prs(user: dict = Depends(get_current_user)):
+    prs = compute_exercise_prs(user["telegram_id"])
+    return [
+        {
+            "exercise_name": row["exercise_name"],
+            "weight_lbs": float(row["weight_lbs"]),
+            "sets": row["sets"],
+            "reps": row["reps"],
+            "date": row["timestamp"][:10],
+        }
+        for row in prs
+    ]

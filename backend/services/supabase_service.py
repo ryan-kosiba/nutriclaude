@@ -67,6 +67,7 @@ def confirm_log(pending_id: str) -> Optional[dict]:
         "bodyweight": "bodyweight",
         "wellness": "wellness",
         "workout_quality": "workout_quality",
+        "exercise": "exercises",
     }
 
     table = table_map.get(log_type)

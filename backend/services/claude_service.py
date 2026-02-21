@@ -84,6 +84,11 @@ async def extract_log(message: str) -> Tuple[bool, Optional[List[LogEntry]], Opt
     if isinstance(data, dict):
         data = [data]
 
+    # Inject server-side timestamp into each entry
+    for entry in data:
+        if "timestamp" not in entry:
+            entry["timestamp"] = current_time
+
     # Validate each entry
     logs = []
     raw_dicts = []

@@ -29,13 +29,13 @@ You must classify into one of the following:
 - `bodyweight`
 - `wellness`
 - `workout_quality`
+- `exercise`
 
 If the message does not clearly fit one of these types, return:
 
 ```json
 {
-  "type": "unknown",
-  "timestamp": "<ISO8601>"
+  "type": "unknown"
 }
 ```
 
@@ -46,10 +46,7 @@ If the message does not clearly fit one of these types, return:
 - Do not explain your reasoning.
 - Do not include extra fields.
 - Do not omit required fields.
-- Use ISO8601 timestamp format.
-- The current date and time will be provided in each request. Use it to resolve relative time references.
-- If the user says "yesterday," "last night," "this morning," etc., resolve the timestamp relative to the provided current date/time.
-- If no time reference is given, use the provided current date/time as the timestamp.
+- Do NOT include a "timestamp" field — timestamps are handled server-side.
 - If a numeric value cannot be confidently inferred, use `null`.
 - All numeric values must be realistic and conservative.
 - Do not fabricate highly specific macro precision.
@@ -66,7 +63,6 @@ If the message does not clearly fit one of these types, return:
 ```json
 {
   "type": "meal",
-  "timestamp": "ISO8601",
   "description": "string",
   "calories": 850,
   "protein_g": 55,
@@ -88,7 +84,6 @@ If the message does not clearly fit one of these types, return:
 ```json
 {
   "type": "workout",
-  "timestamp": "ISO8601",
   "description": "string",
   "estimated_calories_burned": 420,
   "intensity_score": 8
@@ -108,7 +103,6 @@ If the message does not clearly fit one of these types, return:
 ```json
 {
   "type": "bodyweight",
-  "timestamp": "ISO8601",
   "weight_lbs": 182.4
 }
 ```
@@ -124,7 +118,6 @@ If the message does not clearly fit one of these types, return:
 ```json
 {
   "type": "wellness",
-  "timestamp": "ISO8601",
   "fatigue_score": 7
 }
 ```
@@ -140,7 +133,6 @@ If the message does not clearly fit one of these types, return:
 ```json
 {
   "type": "workout_quality",
-  "timestamp": "ISO8601",
   "performance_score": 9
 }
 ```
@@ -150,11 +142,37 @@ If the message does not clearly fit one of these types, return:
 - Score must be 0–10.
 - Must reflect user's self-reported workout rating.
 
+### 6. Exercise
+
+```json
+{
+  "type": "exercise",
+  "exercise_name": "Deadlift",
+  "sets": 3,
+  "reps": 5,
+  "weight_lbs": 200,
+  "notes": null
+}
+```
+
+**Rules:**
+
+- Use for weightlifting / resistance training with specific sets, reps, and weight.
+- Normalize exercise names to title case (e.g., "bench" → "Bench Press", "dl" or "deadlift" → "Deadlift", "squat" → "Squat", "ohp" → "Overhead Press", "incline db press" → "Incline DB Press").
+- Common input formats: "3x5 200lbs", "200lbs 3x5", "3 sets of 5 at 200", "bench 185 3x8".
+- If weight is in kg, convert to lbs (multiply by 2.2, round to nearest 0.5).
+- If a message contains multiple exercises, return an array with one object per exercise.
+- Notes field is optional — use for extra context like "paused reps", "with belt", etc.
+- Do NOT classify as "workout" if the user provides specific sets/reps/weight — use "exercise" instead.
+- If the user describes a general workout without specific sets/reps/weight (e.g., "did chest for an hour"), use "workout" type instead.
+
 ## CLASSIFICATION RULES
 
 **Meal indicators:** ate, had, breakfast, lunch, dinner, food items
 
-**Workout indicators:** did legs, chest day, ran, lifted, cardio, trained
+**Workout indicators:** did legs, chest day, ran, lifted, cardio, trained (general workout without specific sets/reps/weight)
+
+**Exercise indicators:** bench press, squat, deadlift, press, curl, row, sets, reps, lbs, kg (specific lifts with sets/reps/weight)
 
 **Bodyweight indicators:** weighed, scale, weight
 
@@ -171,9 +189,9 @@ Example input: "Had oatmeal for breakfast and a chipotle bowl for lunch, then di
 Example output:
 ```json
 [
-  {"type": "meal", "timestamp": "...", "description": "Oatmeal", "calories": 350, "protein_g": 12, "carbs_g": 55, "fat_g": 8},
-  {"type": "meal", "timestamp": "...", "description": "Chipotle bowl", "calories": 850, "protein_g": 48, "carbs_g": 85, "fat_g": 32},
-  {"type": "workout", "timestamp": "...", "description": "Leg day", "estimated_calories_burned": 400, "intensity_score": 7}
+  {"type": "meal", "description": "Oatmeal", "calories": 350, "protein_g": 12, "carbs_g": 55, "fat_g": 8},
+  {"type": "meal", "description": "Chipotle bowl", "calories": 850, "protein_g": 48, "carbs_g": 85, "fat_g": 32},
+  {"type": "workout", "description": "Leg day", "estimated_calories_burned": 400, "intensity_score": 7}
 ]
 ```
 
@@ -212,8 +230,7 @@ Return:
 
 ```json
 {
-  "type": "unknown",
-  "timestamp": "<ISO8601>"
+  "type": "unknown"
 }
 ```
 
@@ -225,6 +242,7 @@ You must:
 
 - Output valid JSON
 - Match schema exactly
+- Do NOT include a "timestamp" field
 - Include no commentary
 - Avoid hallucinated specificity
 - Keep estimates realistic
