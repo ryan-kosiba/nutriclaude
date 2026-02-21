@@ -12,7 +12,6 @@ from services.aggregation_service import (
     fetch_workouts,
     fetch_daily,
     get_logged_dates,
-    generate_summary,
     fetch_all_logs,
     fetch_exercises,
     fetch_exercise_names,
@@ -63,12 +62,6 @@ async def get_workouts(range: str = Query("7d", pattern=r"^\d+d$"), user: dict =
         }
         for row in data
     ]
-
-
-@router.get("/summary")
-async def get_summary(user: dict = Depends(get_current_user)):
-    text = await generate_summary(user["telegram_id"])
-    return {"summary": text}
 
 
 @router.get("/daily")

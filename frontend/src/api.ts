@@ -37,11 +37,6 @@ export interface WeightEntry {
   weight_lbs: number;
 }
 
-export interface WellnessEntry {
-  date: string;
-  fatigue_score: number;
-}
-
 export interface CalorieBalanceEntry {
   date: string;
   intake: number;
@@ -112,9 +107,7 @@ export const api = {
   kpis: (range = '7d') => fetchJson<KpiData>(`${BASE}/kpis?range=${range}`),
   meals: (range = '7d') => fetchJson<DailyMeal[]>(`${BASE}/meals?range=${range}`),
   weight: (range = '30d') => fetchJson<WeightEntry[]>(`${BASE}/weight?range=${range}`),
-  wellness: (range = '7d') => fetchJson<WellnessEntry[]>(`${BASE}/wellness?range=${range}`),
   calorieBalance: (range = '7d') => fetchJson<CalorieBalanceEntry[]>(`${BASE}/calorie-balance?range=${range}`),
-  summary: () => fetchJson<{ summary: string }>(`${BASE}/summary`),
   daily: (date: string) => fetchJson<DailyData>(`${BASE}/daily?date=${date}`),
   dates: (range = '7d') => fetchJson<string[]>(`${BASE}/dates?range=${range}`),
   logHistory: (range = '30d', type = 'all') =>

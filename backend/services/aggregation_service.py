@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import os
-import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List
-
-import anthropic
 
 from services.supabase_service import get_client
 
@@ -431,39 +427,3 @@ def compute_exercise_prs(user_id: str) -> List[dict]:
     return sorted(prs.values(), key=lambda x: x["exercise_name"])
 
 
-async def generate_summary(user_id: str) -> str:
-    meals = fetch_meals(user_id, "7d")
-    workouts = fetch_workouts(user_id, "7d")
-    wellness = fetch_wellness(user_id, "7d")
-    workout_quality = fetch_workout_quality(user_id, "7d")
-    bodyweight = fetch_bodyweight(user_id, "7d")
-
-    if not any([meals, workouts, wellness, workout_quality, bodyweight]):
-        return "No data logged in the past 7 days. Start logging via Telegram to see your weekly summary!"
-
-    data_summary = {
-        "meals": meals,
-        "workouts": workouts,
-        "wellness": wellness,
-        "workout_quality": workout_quality,
-        "bodyweight": bodyweight,
-    }
-
-    prompt = f"""Analyze this week's fitness and nutrition data and provide a brief, insightful summary (3-5 sentences).
-Focus on patterns, correlations, and observations. Be conversational and encouraging, not clinical.
-Do NOT give warnings or medical advice. Just share interesting patterns you notice.
-
-Data:
-{json.dumps(data_summary, indent=2, default=str)}"""
-
-    try:
-        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.content[0].text
-    except Exception as e:
-        logger.error(f"Summary generation failed: {e}")
-        return "Unable to generate summary at this time."
