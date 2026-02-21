@@ -5,6 +5,14 @@ myenv/
 __pycache__/
 node_modules/
 frontend/dist/
-*.md
+PRD.md
+README.md
+archtecture.md
+backend-structure.md
+contributing.md
+database-schema.md
+prompting.md
+roadmap.md
+todo.md
 dashboard.png
 .vscode/

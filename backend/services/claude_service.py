@@ -16,7 +16,7 @@ from services.validation_service import validate_log
 logger = logging.getLogger("nutriclaude.claude")
 
 # Load system prompt from markdown file
-SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "system-prompt.md"
+SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "system-prompt.md"
 
 def _load_system_prompt() -> str:
     with open(SYSTEM_PROMPT_PATH, "r") as f:

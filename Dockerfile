@@ -14,6 +14,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
+COPY system-prompt.md .
 
 # Copy built frontend to where main.py expects it:
 # FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
