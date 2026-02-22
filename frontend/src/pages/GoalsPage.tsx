@@ -95,23 +95,27 @@ export default function GoalsPage() {
 
         <div>
           <label className="block text-text-secondary text-sm mb-1.5">Height</label>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              value={form.height_feet ?? ''}
-              onChange={e => handleChange('height_feet', e.target.value)}
-              placeholder="ft"
-              className={inputClass}
-            />
-            <span className="text-text-muted text-sm w-10">ft</span>
-            <input
-              type="number"
-              value={form.height_inches ?? ''}
-              onChange={e => handleChange('height_inches', e.target.value)}
-              placeholder="in"
-              className={inputClass}
-            />
-            <span className="text-text-muted text-sm w-10">in</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                value={form.height_feet ?? ''}
+                onChange={e => handleChange('height_feet', e.target.value)}
+                placeholder="ft"
+                className={inputClass}
+              />
+              <span className="text-text-muted text-sm w-10">ft</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                value={form.height_inches ?? ''}
+                onChange={e => handleChange('height_inches', e.target.value)}
+                placeholder="in"
+                className={inputClass}
+              />
+              <span className="text-text-muted text-sm w-10">in</span>
+            </div>
           </div>
         </div>
 
