@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { Flame, Beef, Weight, TrendingDown, Zap, Activity } from 'lucide-react'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
+  Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts'
 import { api } from '../api'
-import type { KpiData, WeightEntry, CalorieBalanceEntry, DailyMeal } from '../api'
+import type { KpiData, WeightEntry, CalorieBalanceEntry, DailyMeal, Goals } from '../api'
 import { useAuth } from '../AuthContext'
 
 interface KPICardProps {
@@ -51,6 +51,7 @@ export default function DashboardPage() {
   const [weight, setWeight] = useState<WeightEntry[]>([])
   const [calorieBalance, setCalorieBalance] = useState<CalorieBalanceEntry[]>([])
   const [meals, setMeals] = useState<DailyMeal[]>([])
+  const [goals, setGoals] = useState<Goals>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -61,11 +62,13 @@ export default function DashboardPage() {
       api.weight('30d'),
       api.calorieBalance(range),
       api.meals(range),
-    ]).then(([k, w, cb, m]) => {
+      api.getGoals(),
+    ]).then(([k, w, cb, m, g]) => {
       setKpis(k)
       setWeight(w)
       setCalorieBalance(cb)
       setMeals(m)
+      setGoals(g)
       setLoading(false)
     })
   }, [dateRange])
@@ -180,26 +183,83 @@ export default function DashboardPage() {
       </div>
 
       {/* Daily Net Balance */}
-      {calorieBalance.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-4 lg:p-6">
-          <h2 className="text-lg font-medium text-text mb-4">Daily Net Balance (Surplus/Deficit)</h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={calorieBalance.map(cb => ({ ...cb, label: formatDate(cb.date) }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-              <XAxis dataKey="label" stroke="#666" style={{ fontSize: '12px' }} />
-              <YAxis stroke="#666" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                formatter={(value) => {
-                  const v = Number(value) || 0
-                  return [`${v > 0 ? '+' : ''}${v} kcal`, v > 0 ? 'Surplus' : 'Deficit']
-                }}
-              />
-              <Line type="monotone" dataKey="net" stroke="#A2FF00" strokeWidth={3} dot={{ fill: '#A2FF00', r: 4 }} activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+      {calorieBalance.length > 0 && (() => {
+        const hasGoal = goals.daily_calories != null
+        if (!hasGoal) {
+          // Fallback: original line chart when no calorie goal is set
+          return (
+            <div className="bg-card border border-border rounded-lg p-4 lg:p-6">
+              <h2 className="text-lg font-medium text-text mb-4">Daily Net Balance (Surplus/Deficit)</h2>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={calorieBalance.map(cb => ({ ...cb, label: formatDate(cb.date) }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                  <XAxis dataKey="label" stroke="#666" style={{ fontSize: '12px' }} />
+                  <YAxis stroke="#666" style={{ fontSize: '12px' }} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(value) => {
+                      const v = Number(value) || 0
+                      return [`${v > 0 ? '+' : ''}${v} kcal`, v > 0 ? 'Surplus' : 'Deficit']
+                    }}
+                  />
+                  <Line type="monotone" dataKey="net" stroke="#A2FF00" strokeWidth={3} dot={{ fill: '#A2FF00', r: 4 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )
+        }
+
+        const dailyGoal = goals.daily_calories!
+        const isBulking = goals.target_weight_lbs != null && kpis?.current_weight != null && goals.target_weight_lbs > kpis.current_weight
+
+        const goalData = calorieBalance.map(cb => {
+          const diff = cb.intake - dailyGoal
+          const isGood = isBulking ? diff >= 0 : diff <= 0
+          return {
+            label: formatDate(cb.date),
+            diff,
+            intake: cb.intake,
+            fill: isGood ? '#4ade80' : '#f87171',
+          }
+        })
+
+        return (
+          <div className="bg-card border border-border rounded-lg p-4 lg:p-6">
+            <h2 className="text-lg font-medium text-text mb-4">
+              Daily Intake vs Goal {isBulking ? '(Bulking)' : '(Cutting)'}
+            </h2>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={goalData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                <XAxis dataKey="label" stroke="#666" style={{ fontSize: '12px' }} />
+                <YAxis stroke="#666" style={{ fontSize: '12px' }} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null
+                    const d = payload[0].payload
+                    const sign = d.diff > 0 ? '+' : ''
+                    return (
+                      <div style={tooltipStyle} className="p-3 text-sm">
+                        <p>Intake: {d.intake} kcal</p>
+                        <p>Goal: {dailyGoal} kcal</p>
+                        <p style={{ color: d.fill }}>Diff: {sign}{d.diff} kcal</p>
+                      </div>
+                    )
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#666" strokeDasharray="3 3" label={{ value: `Goal: ${dailyGoal}`, position: 'right', fill: '#888', fontSize: 12 }} />
+                <Bar dataKey="diff" radius={[4, 4, 4, 4]}>
+                  {goalData.map((entry, index) => (
+                    <Cell key={index} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )
+      })()}
     </div>
   )
 }
