@@ -103,6 +103,16 @@ export interface LogHistoryEntry {
   fat: number | null;
 }
 
+export interface WellnessEntry {
+  date: string;
+  fatigue_score: number;
+}
+
+export interface PerformanceEntry {
+  date: string;
+  performance_score: number;
+}
+
 export interface Goals {
   target_weight_lbs?: number | null;
   daily_calories?: number | null;
@@ -131,5 +141,7 @@ export const api = {
   exerciseNames: () => fetchJson<string[]>(`${BASE}/exercise-names`),
   exerciseHistory: (name: string, range = '90d') =>
     fetchJson<ExerciseHistoryPoint[]>(`${BASE}/exercise-history?name=${encodeURIComponent(name)}&range=${range}`),
+  wellness: (range = '30d') => fetchJson<WellnessEntry[]>(`${BASE}/wellness?range=${range}`),
+  performance: (range = '30d') => fetchJson<PerformanceEntry[]>(`${BASE}/performance?range=${range}`),
   exercisePRs: () => fetchJson<ExercisePR[]>(`${BASE}/exercise-prs`),
 };

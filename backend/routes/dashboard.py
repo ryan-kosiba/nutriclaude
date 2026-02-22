@@ -9,6 +9,7 @@ from services.aggregation_service import (
     compute_calorie_balance,
     fetch_bodyweight,
     fetch_wellness,
+    fetch_workout_quality,
     fetch_workouts,
     fetch_daily,
     get_logged_dates,
@@ -46,6 +47,15 @@ async def get_wellness(range: str = Query("7d", pattern=r"^\d+d$"), user: dict =
     data = fetch_wellness(user["telegram_id"], range)
     return [
         {"date": row["timestamp"][:10], "fatigue_score": row["fatigue_score"]}
+        for row in data
+    ]
+
+
+@router.get("/performance")
+async def get_performance(range: str = Query("7d", pattern=r"^\d+d$"), user: dict = Depends(get_current_user)):
+    data = fetch_workout_quality(user["telegram_id"], range)
+    return [
+        {"date": row["timestamp"][:10], "performance_score": row["performance_score"]}
         for row in data
     ]
 

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Flame, Beef, Weight, TrendingDown, Zap, Activity } from 'lucide-react'
+import { Flame, Beef, Weight, Zap, Activity } from 'lucide-react'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts'
 import { api } from '../api'
-import type { KpiData, WeightEntry, CalorieBalanceEntry, DailyMeal, Goals } from '../api'
+import type { KpiData, WeightEntry, CalorieBalanceEntry, DailyMeal, WellnessEntry, PerformanceEntry, Goals } from '../api'
 import { useAuth } from '../AuthContext'
 
 interface KPICardProps {
@@ -14,12 +14,20 @@ interface KPICardProps {
   unit?: string
   icon: React.ElementType
   accentColor?: 'green' | 'blue'
+  trendData?: { value: number }[]
+  goalValue?: number
 }
 
-function KPICard({ title, value, unit, icon: Icon, accentColor = 'green' }: KPICardProps) {
+function KPICard({ title, value, unit, icon: Icon, accentColor = 'green', trendData, goalValue }: KPICardProps) {
+  const [hovered, setHovered] = useState(false)
   const colorClass = accentColor === 'green' ? 'text-accent-green' : 'text-accent-blue'
+  const lineColor = accentColor === 'green' ? '#A2FF00' : '#4FC3F7'
   return (
-    <div className="bg-card border border-border rounded-lg p-4 hover:border-card-hover transition-colors">
+    <div
+      className="relative bg-card border border-border rounded-lg p-4 hover:border-card-hover transition-colors"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="flex items-start justify-between mb-3">
         <span className="text-text-muted text-sm">{title}</span>
         <Icon className={`w-5 h-5 ${colorClass}`} />
@@ -28,6 +36,18 @@ function KPICard({ title, value, unit, icon: Icon, accentColor = 'green' }: KPIC
         <span className="text-2xl text-text font-medium">{value}</span>
         {unit && <span className="text-text-dim text-sm">{unit}</span>}
       </div>
+      {hovered && trendData && trendData.length > 1 && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-card border border-border rounded-lg p-2 shadow-lg">
+          <ResponsiveContainer width="100%" height={80}>
+            <LineChart data={trendData}>
+              <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} dot={false} />
+              {goalValue != null && (
+                <ReferenceLine y={goalValue} stroke="#888" strokeDasharray="4 3" />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   )
 }
@@ -51,6 +71,8 @@ export default function DashboardPage() {
   const [weight, setWeight] = useState<WeightEntry[]>([])
   const [calorieBalance, setCalorieBalance] = useState<CalorieBalanceEntry[]>([])
   const [meals, setMeals] = useState<DailyMeal[]>([])
+  const [wellness, setWellness] = useState<WellnessEntry[]>([])
+  const [performance, setPerformance] = useState<PerformanceEntry[]>([])
   const [goals, setGoals] = useState<Goals>({})
   const [loading, setLoading] = useState(true)
 
@@ -61,13 +83,17 @@ export default function DashboardPage() {
       api.kpis(range),
       api.weight('30d'),
       api.calorieBalance(range),
-      api.meals(range),
+      api.meals('30d'),
+      api.wellness('30d'),
+      api.performance('30d'),
       api.getGoals(),
-    ]).then(([k, w, cb, m, g]) => {
+    ]).then(([k, w, cb, m, wel, perf, g]) => {
       setKpis(k)
       setWeight(w)
       setCalorieBalance(cb)
       setMeals(m)
+      setWellness(wel)
+      setPerformance(perf)
       setGoals(g)
       setLoading(false)
     })
@@ -88,7 +114,8 @@ export default function DashboardPage() {
   }
 
   // Transform meals for stacked bar chart (protein*4, carbs*4, fat*9 as calorie contributions)
-  const calorieBreakdown = meals.map((m) => ({
+  const chartMeals = meals.slice(-dateRange)
+  const calorieBreakdown = chartMeals.map((m) => ({
     date: m.date,
     protein: m.protein_g * 4,
     carbs: m.carbs_g * 4,
@@ -125,19 +152,30 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       {kpis && (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <KPICard title="Avg Daily Calories" value={kpis.avg_daily_calories} unit="kcal" icon={Flame} accentColor="green" />
-          <KPICard title="Avg Daily Protein" value={kpis.avg_daily_protein} unit="g" icon={Beef} accentColor="blue" />
-          <KPICard title="Current Weight" value={kpis.current_weight ?? '—'} unit="lbs" icon={Weight} accentColor="blue" />
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
           <KPICard
-            title="Calorie Balance"
-            value={kpis.calorie_balance > 0 ? `+${kpis.calorie_balance}` : kpis.calorie_balance}
-            unit="kcal"
-            icon={TrendingDown}
-            accentColor="green"
+            title="Weight" value={kpis.current_weight ?? '—'} unit="lbs" icon={Weight} accentColor="blue"
+            trendData={weight.slice(-14).map(w => ({ value: w.weight_lbs }))}
+            goalValue={goals.target_weight_lbs ?? undefined}
           />
-          <KPICard title="Avg Fatigue" value={kpis.avg_fatigue ?? '—'} unit="/10" icon={Zap} accentColor="blue" />
-          <KPICard title="Workout Performance" value={kpis.avg_performance ?? '—'} unit="/10" icon={Activity} accentColor="green" />
+          <KPICard
+            title="Avg Daily Calories" value={kpis.avg_daily_calories} unit="kcal" icon={Flame} accentColor="green"
+            trendData={meals.slice(-14).map(m => ({ value: m.calories }))}
+            goalValue={goals.daily_calories ?? undefined}
+          />
+          <KPICard
+            title="Avg Daily Protein" value={kpis.avg_daily_protein} unit="g" icon={Beef} accentColor="blue"
+            trendData={meals.slice(-14).map(m => ({ value: m.protein_g }))}
+            goalValue={goals.daily_protein_g ?? undefined}
+          />
+          <KPICard
+            title="Avg Fatigue" value={kpis.avg_fatigue ?? '—'} unit="/10" icon={Zap} accentColor="blue"
+            trendData={wellness.slice(-14).map(w => ({ value: w.fatigue_score }))}
+          />
+          <KPICard
+            title="Avg Performance" value={kpis.avg_performance ?? '—'} unit="/10" icon={Activity} accentColor="green"
+            trendData={performance.slice(-14).map(p => ({ value: p.performance_score }))}
+          />
         </div>
       )}
 
