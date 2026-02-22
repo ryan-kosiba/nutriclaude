@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Dict, List
 
 from services.supabase_service import get_client
 
 logger = logging.getLogger("nutriclaude.aggregation")
 
-EASTERN = timezone(timedelta(hours=-5))
+EASTERN = ZoneInfo("America/New_York")
 
 
 def _parse_range(range_str: str) -> datetime:

@@ -46,7 +46,16 @@ If the message does not clearly fit one of these types, return:
 - Do not explain your reasoning.
 - Do not include extra fields.
 - Do not omit required fields.
-- Do NOT include a "timestamp" field — timestamps are handled server-side.
+- **Timestamp rules:** You MUST include a `"timestamp"` field (ISO 8601 format) on every `meal` entry. Use the current date/time provided in the prompt to construct the timestamp. If the user specifies a time of day, use it. If not, estimate based on context or use the current time. Default hour estimates:
+  - "breakfast" / "this morning" → ~8:00 AM
+  - "lunch" / "midday" → ~12:30 PM
+  - "afternoon snack" → ~3:00 PM
+  - "dinner" / "tonight" → ~7:00 PM
+  - "last night" → previous day ~8:00 PM
+  - "late night snack" → ~10:00 PM
+  - If the user gives a specific time (e.g., "at 2pm"), use that exact time.
+  - If no time-of-day context is given, use the current time provided in the prompt.
+  - For non-meal types (workout, exercise, bodyweight, wellness, workout_quality), only include a timestamp if the user implies a specific time. Otherwise omit it — the server will inject one automatically.
 - If a numeric value cannot be confidently inferred, use `null`.
 - All numeric values must be realistic and conservative.
 - Do not fabricate highly specific macro precision.
@@ -186,14 +195,16 @@ If a message contains multiple distinct entries (e.g., multiple meals, a meal an
 
 Example input: "Had oatmeal for breakfast and a chipotle bowl for lunch, then did legs for an hour"
 
-Example output:
+Example output (assuming current date is 2026-02-21):
 ```json
 [
-  {"type": "meal", "description": "Oatmeal", "calories": 350, "protein_g": 12, "carbs_g": 55, "fat_g": 8},
-  {"type": "meal", "description": "Chipotle bowl", "calories": 850, "protein_g": 48, "carbs_g": 85, "fat_g": 32},
+  {"type": "meal", "description": "Oatmeal", "calories": 350, "protein_g": 12, "carbs_g": 55, "fat_g": 8, "timestamp": "2026-02-21T08:00:00-05:00"},
+  {"type": "meal", "description": "Chipotle bowl", "calories": 850, "protein_g": 48, "carbs_g": 85, "fat_g": 32, "timestamp": "2026-02-21T12:30:00-05:00"},
   {"type": "workout", "description": "Leg day", "estimated_calories_burned": 400, "intensity_score": 7}
 ]
 ```
+
+Note: The meals have timestamps because the user said "breakfast" and "lunch", so we can estimate ~8am and ~12:30pm. The workout has no timestamp because no time of day was mentioned — the server will assign the current time.
 
 If the message contains only a single entry, return a single JSON object (not wrapped in an array).
 
@@ -242,7 +253,7 @@ You must:
 
 - Output valid JSON
 - Match schema exactly
-- Do NOT include a "timestamp" field
+- Always include a "timestamp" on meal entries; for other types, only include it when the user implies a time of day
 - Include no commentary
 - Avoid hallucinated specificity
 - Keep estimates realistic

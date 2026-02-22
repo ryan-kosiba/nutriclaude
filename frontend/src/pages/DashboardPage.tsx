@@ -78,7 +78,7 @@ export default function DashboardPage() {
     year: 'numeric',
   })
 
-  const displayName = user?.display_name || 'there'
+  const displayName = user?.display_name?.split(' ')[0] || 'there'
 
   if (loading) {
     return <div className="p-8 text-text-muted">Loading...</div>

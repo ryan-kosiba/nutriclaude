@@ -4,7 +4,8 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -53,14 +54,14 @@ async def extract_log(message: str) -> Tuple[bool, Optional[List[LogEntry]], Opt
     Returns:
         (success, list_of_parsed_logs, list_of_raw_dicts, error_message)
     """
-    eastern = timezone(timedelta(hours=-5))
+    eastern = ZoneInfo("America/New_York")
     current_time = datetime.now(eastern).isoformat()
 
     user_message = f"Current date/time (US Eastern): {current_time}\n\nUser message: {message}"
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model="claude-haiku-4-5-20251001",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],

@@ -69,7 +69,7 @@ export default function Layout() {
               <span className="text-accent-green font-medium text-sm">{initials}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-text text-sm font-medium truncate">{user.display_name || 'User'}</p>
+              <p className="text-text text-sm font-medium truncate">{user.display_name?.split(' ')[0] || 'User'}</p>
             </div>
             <button onClick={logout} className="text-text-muted hover:text-text transition-colors">
               <LogOut className="w-4 h-4" />
