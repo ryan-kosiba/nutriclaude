@@ -1,11 +1,11 @@
 const BASE = '/api';
 
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('session_token');
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options?.headers as Record<string, string> };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { ...options, headers });
   if (res.status === 401 || res.status === 403) {
     localStorage.removeItem('session_token');
     window.location.href = '/';
@@ -103,7 +103,22 @@ export interface LogHistoryEntry {
   fat: number | null;
 }
 
+export interface Goals {
+  target_weight_lbs?: number | null;
+  daily_calories?: number | null;
+  daily_protein_g?: number | null;
+  max_carbs_g?: number | null;
+  max_fat_g?: number | null;
+}
+
 export const api = {
+  getGoals: () => fetchJson<Goals>(`${BASE}/goals`),
+  updateGoals: (data: Goals) =>
+    fetchJson<{ status: string }>(`${BASE}/goals`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
   kpis: (range = '7d') => fetchJson<KpiData>(`${BASE}/kpis?range=${range}`),
   meals: (range = '7d') => fetchJson<DailyMeal[]>(`${BASE}/meals?range=${range}`),
   weight: (range = '30d') => fetchJson<WeightEntry[]>(`${BASE}/weight?range=${range}`),

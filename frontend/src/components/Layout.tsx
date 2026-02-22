@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Calendar, History, Dumbbell, LogOut } from 'lucide-react'
+import { LayoutDashboard, Calendar, History, Dumbbell, Target, LogOut } from 'lucide-react'
 import { useAuth } from '../AuthContext'
 import LoginPage from './LoginPage'
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/daily', label: 'Daily', icon: Calendar },
   { to: '/history', label: 'Log History', icon: History },
   { to: '/lifting', label: 'Lifting', icon: Dumbbell },
+  { to: '/goals', label: 'Goals', icon: Target },
 ]
 
 export default function Layout() {

@@ -15,6 +15,7 @@ from routes.auth import router as auth_router
 from routes.telegram import router as telegram_router
 from routes.confirm import router as confirm_router
 from routes.dashboard import router as dashboard_router
+from routes.goals import router as goals_router
 
 logger = logging.getLogger("nutriclaude")
 
@@ -61,6 +62,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(telegram_router, prefix="/api")
 app.include_router(confirm_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
+app.include_router(goals_router, prefix="/api")
 
 
 @app.get("/health")
