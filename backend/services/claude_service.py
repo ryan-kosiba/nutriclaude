@@ -48,6 +48,30 @@ def _extract_json(text: str) -> str:
     return text.strip()
 
 
+def summarize_workout(workouts: list, exercises: list) -> str:
+    """Generate a 2-3 sentence workout summary using Claude Haiku."""
+    parts = []
+    for w in workouts:
+        parts.append(f"Workout: {w.get('description', 'Unknown')} — {w.get('estimated_calories_burned', 0)} kcal burned, intensity {w.get('intensity_score', 'N/A')}/10")
+    for e in exercises:
+        weight_str = f" @ {e['weight_lbs']} lbs" if e.get('weight_lbs') else ""
+        notes_str = f" ({e['notes']})" if e.get('notes') else ""
+        parts.append(f"Exercise: {e['exercise_name']} — {e['sets']}x{e['reps']}{weight_str}{notes_str}")
+
+    prompt = (
+        "Summarize this workout day in 2-3 concise sentences. "
+        "Focus on what was done, volume, and intensity. Be conversational but brief.\n\n"
+        + "\n".join(parts)
+    )
+
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=256,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text.strip()
+
+
 async def extract_log(message: str) -> Tuple[bool, Optional[List[LogEntry]], Optional[List[dict]], Optional[str]]:
     """Send a user message to Claude and extract structured log data.
 

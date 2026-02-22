@@ -251,6 +251,8 @@ def fetch_daily(user_id: str, date_str: str) -> dict:
     total_carbs = sum(m.get("carbs_g", 0) for m in meals)
     total_fat = sum(m.get("fat_g", 0) for m in meals)
 
+    exercises = fetch_daily_exercises(user_id, date_str)
+
     workout_info = None
     if workouts:
         w = workouts[0]
@@ -285,6 +287,7 @@ def fetch_daily(user_id: str, date_str: str) -> dict:
             }
             for m in meals
         ],
+        "exercises": exercises,
         "workout": workout_info,
         "performance": performance,
         "fatigue": fatigue,
@@ -409,6 +412,32 @@ def fetch_exercise_history(user_id: str, exercise_name: str, range_str: str = "9
         .execute()
     )
     return result.data
+
+
+def fetch_daily_exercises(user_id: str, date_str: str) -> List[dict]:
+    """Fetch all exercises for a specific date (YYYY-MM-DD)."""
+    start = f"{date_str}T00:00:00-05:00"
+    end = f"{date_str}T23:59:59-05:00"
+    client = get_client()
+    result = (
+        client.table("exercises")
+        .select("*")
+        .eq("user_id", user_id)
+        .gte("timestamp", start)
+        .lte("timestamp", end)
+        .order("timestamp")
+        .execute()
+    )
+    return [
+        {
+            "exercise_name": r.get("exercise_name", ""),
+            "sets": r.get("sets", 0),
+            "reps": r.get("reps", 0),
+            "weight_lbs": r.get("weight_lbs", 0),
+            "notes": r.get("notes"),
+        }
+        for r in result.data
+    ]
 
 
 def compute_exercise_prs(user_id: str) -> List[dict]:

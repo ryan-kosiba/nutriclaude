@@ -9,6 +9,8 @@ export default function DailyPage() {
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [data, setData] = useState<DailyData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [workoutSummary, setWorkoutSummary] = useState<string | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
 
   useEffect(() => {
     api.dates('14d').then((d) => {
@@ -23,10 +25,16 @@ export default function DailyPage() {
   useEffect(() => {
     if (!selectedDate) return
     setLoading(true)
+    setWorkoutSummary(null)
     api.daily(selectedDate).then((d) => {
       setData(d)
       setLoading(false)
     })
+    setSummaryLoading(true)
+    api.workoutSummary(selectedDate)
+      .then((r) => setWorkoutSummary(r.summary))
+      .catch(() => setWorkoutSummary(null))
+      .finally(() => setSummaryLoading(false))
   }, [selectedDate])
 
   if (loading && !data) {
@@ -95,14 +103,35 @@ export default function DailyPage() {
           </div>
 
           {/* Workout card */}
-          {data.workout && (
+          {(data.workout || data.exercises.length > 0) && (
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="text-text-muted text-sm mb-2">Workout</h3>
-              <p className="text-text font-medium">{data.workout.description}</p>
-              <div className="flex gap-4 mt-2 text-sm text-text-secondary">
-                <span>{data.workout.calories_burned} kcal burned</span>
-                {data.workout.intensity != null && <span>Intensity: {data.workout.intensity}/10</span>}
-              </div>
+              {data.workout && (
+                <>
+                  <p className="text-text font-medium">{data.workout.description}</p>
+                  <div className="flex gap-4 mt-2 text-sm text-text-secondary">
+                    <span>{data.workout.calories_burned} kcal burned</span>
+                    {data.workout.intensity != null && <span>Intensity: {data.workout.intensity}/10</span>}
+                  </div>
+                </>
+              )}
+              {data.exercises.length > 0 && (
+                <div className={data.workout ? 'mt-3 pt-3 border-t border-border' : ''}>
+                  <div className="flex flex-wrap gap-2">
+                    {data.exercises.map((ex, i) => (
+                      <span key={i} className="text-sm text-text-secondary bg-bg px-2 py-1 rounded">
+                        {ex.exercise_name} {ex.sets}x{ex.reps}{ex.weight_lbs ? ` @ ${ex.weight_lbs} lbs` : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {summaryLoading && (
+                <p className="mt-3 text-sm text-text-muted italic">Generating summary...</p>
+              )}
+              {workoutSummary && !summaryLoading && (
+                <p className="mt-3 text-sm text-text-secondary">{workoutSummary}</p>
+              )}
             </div>
           )}
 

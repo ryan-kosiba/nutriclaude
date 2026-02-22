@@ -53,6 +53,14 @@ export interface MealDetail {
   timestamp: string;
 }
 
+export interface DailyExercise {
+  exercise_name: string;
+  sets: number;
+  reps: number;
+  weight_lbs: number;
+  notes: string | null;
+}
+
 export interface DailyData {
   date: string;
   calories: number;
@@ -60,6 +68,7 @@ export interface DailyData {
   carbs_g: number;
   fat_g: number;
   meals: MealDetail[];
+  exercises: DailyExercise[];
   workout: { description: string; calories_burned: number; intensity: number | null } | null;
   performance: number | null;
   fatigue: number | null;
@@ -144,4 +153,5 @@ export const api = {
   wellness: (range = '30d') => fetchJson<WellnessEntry[]>(`${BASE}/wellness?range=${range}`),
   performance: (range = '30d') => fetchJson<PerformanceEntry[]>(`${BASE}/performance?range=${range}`),
   exercisePRs: () => fetchJson<ExercisePR[]>(`${BASE}/exercise-prs`),
+  workoutSummary: (date: string) => fetchJson<{ summary: string | null }>(`${BASE}/workout-summary?date=${date}`),
 };

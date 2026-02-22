@@ -12,6 +12,7 @@ from services.aggregation_service import (
     fetch_workout_quality,
     fetch_workouts,
     fetch_daily,
+    fetch_daily_exercises,
     get_logged_dates,
     fetch_all_logs,
     fetch_exercises,
@@ -19,6 +20,8 @@ from services.aggregation_service import (
     fetch_exercise_history,
     compute_exercise_prs,
 )
+from services.claude_service import summarize_workout
+from services.supabase_service import get_client
 
 router = APIRouter()
 
@@ -143,3 +146,55 @@ async def get_exercise_prs(user: dict = Depends(get_current_user)):
         }
         for row in prs
     ]
+
+
+@router.get("/workout-summary")
+async def get_workout_summary(
+    date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["telegram_id"]
+    workouts = (
+        get_client()
+        .table("workouts")
+        .select("*")
+        .eq("user_id", user_id)
+        .gte("timestamp", f"{date}T00:00:00-05:00")
+        .lte("timestamp", f"{date}T23:59:59-05:00")
+        .order("timestamp")
+        .execute()
+    ).data
+    exercises = fetch_daily_exercises(user_id, date)
+
+    total_count = len(workouts) + len(exercises)
+    if total_count == 0:
+        return {"summary": None}
+
+    # Check cache
+    client = get_client()
+    cached = (
+        client.table("workout_summaries")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("date", date)
+        .execute()
+    ).data
+
+    if cached and cached[0]["workout_count"] == total_count:
+        return {"summary": cached[0]["summary"]}
+
+    # Generate new summary
+    summary = summarize_workout(workouts, exercises)
+
+    # Upsert
+    client.table("workout_summaries").upsert(
+        {
+            "user_id": user_id,
+            "date": date,
+            "workout_count": total_count,
+            "summary": summary,
+        },
+        on_conflict="user_id,date",
+    ).execute()
+
+    return {"summary": summary}
