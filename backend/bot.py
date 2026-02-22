@@ -165,6 +165,26 @@ async def handle_message(update: Update, context) -> None:
         await update.message.reply_text(confirmation_text, reply_markup=keyboard)
 
 
+async def feedback_command(update: Update, context) -> None:
+    """Handle /feedback command — store user feedback."""
+    message = " ".join(context.args) if context.args else ""
+    if not message:
+        await update.message.reply_text(
+            "Please include your feedback after the command.\n"
+            "Example: /feedback Add a weekly summary feature"
+        )
+        return
+
+    user_id = str(update.effective_user.id)
+    client = get_client()
+    client.table("feedback").insert({
+        "user_id": user_id,
+        "message": message,
+    }).execute()
+
+    await update.message.reply_text("Thanks for the feedback!")
+
+
 async def handle_callback(update: Update, context) -> None:
     """Handle Yes/No button presses."""
     query = update.callback_query
@@ -194,6 +214,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("login", login_command))
+    app.add_handler(CommandHandler("feedback", feedback_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(handle_callback))
 
