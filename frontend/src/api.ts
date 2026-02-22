@@ -123,6 +123,9 @@ export interface PerformanceEntry {
 }
 
 export interface Goals {
+  current_weight_lbs?: number | null;
+  height_feet?: number | null;
+  height_inches?: number | null;
   target_weight_lbs?: number | null;
   daily_calories?: number | null;
   daily_protein_g?: number | null;

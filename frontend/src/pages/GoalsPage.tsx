@@ -3,13 +3,24 @@ import { Target, Save } from 'lucide-react'
 import { api } from '../api'
 import type { Goals } from '../api'
 
-const fields = [
+const goalFields = [
   { key: 'target_weight_lbs', label: 'Target Weight', unit: 'lbs' },
   { key: 'daily_calories', label: 'Daily Calories', unit: 'kcal' },
   { key: 'daily_protein_g', label: 'Daily Protein', unit: 'g' },
   { key: 'max_carbs_g', label: 'Max Carbs', unit: 'g' },
   { key: 'max_fat_g', label: 'Max Fat', unit: 'g' },
 ] as const
+
+function calculateBMI(weightLbs: number, heightInches: number): number {
+  return (weightLbs / (heightInches * heightInches)) * 703
+}
+
+function getBMICategory(bmi: number): { label: string; color: string } {
+  if (bmi < 18.5) return { label: 'Underweight', color: 'text-blue-400' }
+  if (bmi < 25) return { label: 'Normal', color: 'text-accent-green' }
+  if (bmi < 30) return { label: 'Overweight', color: 'text-yellow-400' }
+  return { label: 'Obese', color: 'text-red-400' }
+}
 
 export default function GoalsPage() {
   const [form, setForm] = useState<Goals>({})
@@ -44,9 +55,16 @@ export default function GoalsPage() {
     }
   }
 
+  const totalInches = (form.height_feet || 0) * 12 + (form.height_inches || 0)
+  const bmi = form.current_weight_lbs && totalInches > 0
+    ? calculateBMI(form.current_weight_lbs, totalInches)
+    : null
+
   if (loading) {
     return <div className="p-8 text-text-muted">Loading...</div>
   }
+
+  const inputClass = "flex-1 bg-bg border border-border rounded-lg px-4 py-2.5 text-text placeholder-text-dim focus:outline-none focus:border-accent-green transition-colors"
 
   return (
     <div className="p-6 lg:p-10 max-w-2xl mx-auto">
@@ -58,8 +76,61 @@ export default function GoalsPage() {
         <p className="text-text-muted mt-1">Set your daily nutrition and fitness targets</p>
       </div>
 
+      <div className="bg-card border border-border rounded-lg p-6 space-y-5 mb-6">
+        <h2 className="text-lg font-medium text-text">Body Stats</h2>
+
+        <div>
+          <label className="block text-text-secondary text-sm mb-1.5">Current Weight</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={form.current_weight_lbs ?? ''}
+              onChange={e => handleChange('current_weight_lbs', e.target.value)}
+              placeholder="Not set"
+              className={inputClass}
+            />
+            <span className="text-text-muted text-sm w-10">lbs</span>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-text-secondary text-sm mb-1.5">Height</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={form.height_feet ?? ''}
+              onChange={e => handleChange('height_feet', e.target.value)}
+              placeholder="ft"
+              className={inputClass}
+            />
+            <span className="text-text-muted text-sm w-10">ft</span>
+            <input
+              type="number"
+              value={form.height_inches ?? ''}
+              onChange={e => handleChange('height_inches', e.target.value)}
+              placeholder="in"
+              className={inputClass}
+            />
+            <span className="text-text-muted text-sm w-10">in</span>
+          </div>
+        </div>
+
+        {bmi !== null && (
+          <div className="bg-bg border border-border rounded-lg px-4 py-3 flex items-center justify-between">
+            <span className="text-text-secondary text-sm">BMI</span>
+            <div className="flex items-center gap-2">
+              <span className="text-text font-medium">{bmi.toFixed(1)}</span>
+              <span className={`text-sm ${getBMICategory(bmi).color}`}>
+                {getBMICategory(bmi).label}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="bg-card border border-border rounded-lg p-6 space-y-5">
-        {fields.map(({ key, label, unit }) => (
+        <h2 className="text-lg font-medium text-text">Targets</h2>
+        {goalFields.map(({ key, label, unit }) => (
           <div key={key}>
             <label className="block text-text-secondary text-sm mb-1.5">{label}</label>
             <div className="flex items-center gap-3">
@@ -68,7 +139,7 @@ export default function GoalsPage() {
                 value={form[key] ?? ''}
                 onChange={e => handleChange(key, e.target.value)}
                 placeholder="Not set"
-                className="flex-1 bg-bg border border-border rounded-lg px-4 py-2.5 text-text placeholder-text-dim focus:outline-none focus:border-accent-green transition-colors"
+                className={inputClass}
               />
               <span className="text-text-muted text-sm w-10">{unit}</span>
             </div>
