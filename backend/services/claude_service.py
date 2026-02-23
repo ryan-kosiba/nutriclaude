@@ -17,7 +17,7 @@ from services.validation_service import validate_log
 logger = logging.getLogger("nutriclaude.claude")
 
 # Load system prompt from markdown file
-SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "system-prompt.md"
+SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "system-prompt.md"
 
 def _load_system_prompt() -> str:
     with open(SYSTEM_PROMPT_PATH, "r") as f:
@@ -109,10 +109,20 @@ async def extract_log(message: str) -> Tuple[bool, Optional[List[LogEntry]], Opt
     if isinstance(data, dict):
         data = [data]
 
-    # Inject server-side timestamp into each entry
+    # Fix timestamps: inject if missing, override date to today (keep LLM's time)
+    today = datetime.now(eastern).date()
     for entry in data:
         if "timestamp" not in entry:
             entry["timestamp"] = current_time
+        else:
+            try:
+                parsed = datetime.fromisoformat(entry["timestamp"])
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=eastern)
+                corrected = parsed.replace(year=today.year, month=today.month, day=today.day)
+                entry["timestamp"] = corrected.isoformat()
+            except (ValueError, TypeError):
+                entry["timestamp"] = current_time
 
     # Validate each entry
     logs = []
