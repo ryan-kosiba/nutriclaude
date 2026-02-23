@@ -157,4 +157,14 @@ export const api = {
   performance: (range = '30d') => fetchJson<PerformanceEntry[]>(`${BASE}/performance?range=${range}`),
   exercisePRs: () => fetchJson<ExercisePR[]>(`${BASE}/exercise-prs`),
   workoutSummary: (date: string) => fetchJson<{ summary: string | null }>(`${BASE}/workout-summary?date=${date}`),
+  updateLog: (type: string, id: string, data: Record<string, unknown>) =>
+    fetchJson<{ status: string }>(`${BASE}/log/${type}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  deleteLog: (type: string, id: string) =>
+    fetchJson<{ status: string }>(`${BASE}/log/${type}/${id}`, {
+      method: 'DELETE',
+    }),
 };

@@ -1,6 +1,6 @@
 import datetime as dt
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 
 from dependencies import get_current_user
 from services.aggregation_service import (
@@ -198,3 +198,64 @@ async def get_workout_summary(
     ).execute()
 
     return {"summary": summary}
+
+
+# ── Editable fields per log type ──────────────────────────────────
+_LOG_TYPE_CONFIG: dict[str, tuple[str, set[str]]] = {
+    "meal":     ("meals",     {"description", "calories", "protein_g", "carbs_g", "fat_g"}),
+    "workout":  ("workouts",  {"description", "estimated_calories_burned"}),
+    "exercise": ("exercises", {"exercise_name", "sets", "reps", "weight_lbs", "notes"}),
+    "weight":   ("bodyweight", {"weight_lbs"}),
+    "wellness": ("wellness",  {"fatigue_score"}),
+}
+
+
+def _verify_ownership(table: str, row_id: str, user_id: str):
+    """Return the row if it belongs to the user, else raise 404."""
+    row = (
+        get_client()
+        .table(table)
+        .select("id, user_id")
+        .eq("id", row_id)
+        .execute()
+    ).data
+    if not row or str(row[0]["user_id"]) != str(user_id):
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return row[0]
+
+
+@router.put("/log/{log_type}/{log_id}")
+async def update_log(
+    log_type: str,
+    log_id: str,
+    payload: dict = Body(...),
+    user: dict = Depends(get_current_user),
+):
+    if log_type not in _LOG_TYPE_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Unknown log type: {log_type}")
+
+    table, allowed_fields = _LOG_TYPE_CONFIG[log_type]
+    updates = {k: v for k, v in payload.items() if k in allowed_fields}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    _verify_ownership(table, log_id, user["telegram_id"])
+
+    get_client().table(table).update(updates).eq("id", log_id).execute()
+    return {"status": "ok"}
+
+
+@router.delete("/log/{log_type}/{log_id}")
+async def delete_log(
+    log_type: str,
+    log_id: str,
+    user: dict = Depends(get_current_user),
+):
+    if log_type not in _LOG_TYPE_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Unknown log type: {log_type}")
+
+    table, _ = _LOG_TYPE_CONFIG[log_type]
+    _verify_ownership(table, log_id, user["telegram_id"])
+
+    get_client().table(table).delete().eq("id", log_id).execute()
+    return {"status": "ok"}
