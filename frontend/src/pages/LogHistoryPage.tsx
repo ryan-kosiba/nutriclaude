@@ -25,11 +25,12 @@ const typeConfig: Record<string, { icon: React.ElementType; colorClass: string }
 interface FieldDef {
   key: string
   label: string
-  type: 'text' | 'number'
+  type: 'text' | 'number' | 'datetime-local'
 }
 
 const editableFields: Record<string, FieldDef[]> = {
   meal: [
+    { key: 'timestamp', label: 'Timestamp', type: 'datetime-local' },
     { key: 'description', label: 'Description', type: 'text' },
     { key: 'calories', label: 'Calories', type: 'number' },
     { key: 'protein_g', label: 'Protein (g)', type: 'number' },
@@ -37,10 +38,12 @@ const editableFields: Record<string, FieldDef[]> = {
     { key: 'fat_g', label: 'Fat (g)', type: 'number' },
   ],
   workout: [
+    { key: 'timestamp', label: 'Timestamp', type: 'datetime-local' },
     { key: 'description', label: 'Description', type: 'text' },
     { key: 'estimated_calories_burned', label: 'Calories Burned', type: 'number' },
   ],
   exercise: [
+    { key: 'timestamp', label: 'Timestamp', type: 'datetime-local' },
     { key: 'exercise_name', label: 'Exercise', type: 'text' },
     { key: 'sets', label: 'Sets', type: 'number' },
     { key: 'reps', label: 'Reps', type: 'number' },
@@ -48,18 +51,39 @@ const editableFields: Record<string, FieldDef[]> = {
     { key: 'notes', label: 'Notes', type: 'text' },
   ],
   weight: [
+    { key: 'timestamp', label: 'Timestamp', type: 'datetime-local' },
     { key: 'weight_lbs', label: 'Weight (lbs)', type: 'number' },
   ],
   wellness: [
-    { key: 'fatigue_score', label: 'Fatigue Score', type: 'number' },
+    { key: 'timestamp', label: 'Timestamp', type: 'datetime-local' },
+    { key: 'symptom_score', label: 'Symptom Score', type: 'number' },
+    { key: 'symptom', label: 'Symptom', type: 'text' },
   ],
+}
+
+function isoToDatetimeLocal(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function datetimeLocalToISO(local: string): string {
+  // Assume Eastern time offset: determine from the date itself
+  const d = new Date(local)
+  const jan = new Date(d.getFullYear(), 0, 1).getTimezoneOffset()
+  const jul = new Date(d.getFullYear(), 6, 1).getTimezoneOffset()
+  const isDST = d.getTimezoneOffset() < Math.max(jan, jul)
+  const offset = isDST ? '-04:00' : '-05:00'
+  return `${local}:00${offset}`
 }
 
 function getInitialValues(entry: LogHistoryEntry): Record<string, string> {
   const t = entry.type
+  const ts = isoToDatetimeLocal(entry.timestamp)
   if (t === 'meal') {
     const calMatch = entry.value.match(/^(\d+)/)
     return {
+      timestamp: ts,
       description: entry.description,
       calories: calMatch?.[1] ?? '0',
       protein_g: String(entry.protein ?? 0),
@@ -70,6 +94,7 @@ function getInitialValues(entry: LogHistoryEntry): Record<string, string> {
   if (t === 'workout') {
     const calMatch = entry.value.match(/^(\d+)/)
     return {
+      timestamp: ts,
       description: entry.description,
       estimated_calories_burned: calMatch?.[1] ?? '0',
     }
@@ -77,6 +102,7 @@ function getInitialValues(entry: LogHistoryEntry): Record<string, string> {
   if (t === 'exercise') {
     const m = entry.value.match(/^(\d+)x(\d+)\s*@\s*([\d.]+)/)
     return {
+      timestamp: ts,
       exercise_name: entry.description,
       sets: m?.[1] ?? '0',
       reps: m?.[2] ?? '0',
@@ -86,18 +112,20 @@ function getInitialValues(entry: LogHistoryEntry): Record<string, string> {
   }
   if (t === 'weight') {
     const m = entry.value.match(/([\d.]+)/)
-    return { weight_lbs: m?.[1] ?? '0' }
+    return { timestamp: ts, weight_lbs: m?.[1] ?? '0' }
   }
   if (t === 'wellness') {
     const m = entry.value.match(/^(\d+)/)
-    return { fatigue_score: m?.[1] ?? '0' }
+    return { timestamp: ts, symptom_score: m?.[1] ?? '0', symptom: entry.description !== 'Symptom Score' ? entry.description : '' }
   }
   return {}
 }
 
 function rebuildDisplayFields(entry: LogHistoryEntry, vals: Record<string, string>): Partial<LogHistoryEntry> {
   const t = entry.type
+  const tsUpdate = vals.timestamp ? { timestamp: datetimeLocalToISO(vals.timestamp) } : {}
   if (t === 'meal') return {
+    ...tsUpdate,
     description: vals.description,
     value: `${vals.calories} kcal`,
     protein: Number(vals.protein_g),
@@ -105,15 +133,21 @@ function rebuildDisplayFields(entry: LogHistoryEntry, vals: Record<string, strin
     fat: Number(vals.fat_g),
   }
   if (t === 'workout') return {
+    ...tsUpdate,
     description: vals.description,
     value: `${vals.estimated_calories_burned} kcal burned`,
   }
   if (t === 'exercise') return {
+    ...tsUpdate,
     description: vals.exercise_name,
     value: `${vals.sets}x${vals.reps} @ ${vals.weight_lbs} lbs`,
   }
-  if (t === 'weight') return { value: `${vals.weight_lbs} lbs` }
-  if (t === 'wellness') return { value: `${vals.fatigue_score}/10` }
+  if (t === 'weight') return { ...tsUpdate, value: `${vals.weight_lbs} lbs` }
+  if (t === 'wellness') return {
+    ...tsUpdate,
+    description: vals.symptom || 'Symptom Score',
+    value: `${vals.symptom_score}/10`,
+  }
   return {}
 }
 
@@ -176,7 +210,11 @@ export default function LogHistoryPage() {
       const fields = editableFields[entry.type] || []
       for (const f of fields) {
         const val = editValues[f.key]
-        payload[f.key] = f.type === 'number' ? Number(val) : val
+        if (f.type === 'datetime-local') {
+          payload[f.key] = datetimeLocalToISO(val)
+        } else {
+          payload[f.key] = f.type === 'number' ? Number(val) : val
+        }
       }
       await api.updateLog(entry.type, entry.id, payload)
       const updates = rebuildDisplayFields(entry, editValues)

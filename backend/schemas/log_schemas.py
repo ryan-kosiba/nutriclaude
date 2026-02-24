@@ -33,7 +33,8 @@ class BodyweightLog(BaseModel):
 class WellnessLog(BaseModel):
     type: Literal["wellness"]
     timestamp: datetime
-    fatigue_score: int = Field(ge=0, le=10)
+    symptom_score: int = Field(ge=0, le=10)
+    symptom: Optional[str] = None
 
 
 class WorkoutQualityLog(BaseModel):

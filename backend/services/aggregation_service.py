@@ -135,10 +135,10 @@ def compute_kpis(user_id: str, range_str: str = "7d") -> dict:
     total_burned = sum(w.get("estimated_calories_burned", 0) for w in workouts)
     calorie_balance = total_intake - total_burned
 
-    # Average fatigue
-    avg_fatigue = None
+    # Average symptom score
+    avg_symptom_score = None
     if wellness:
-        avg_fatigue = round(sum(w["fatigue_score"] for w in wellness) / len(wellness), 1)
+        avg_symptom_score = round(sum(w["symptom_score"] for w in wellness) / len(wellness), 1)
 
     # Average workout performance
     avg_performance = None
@@ -152,7 +152,7 @@ def compute_kpis(user_id: str, range_str: str = "7d") -> dict:
         "avg_daily_protein": avg_daily_protein,
         "current_weight": current_weight,
         "calorie_balance": calorie_balance,
-        "avg_fatigue": avg_fatigue,
+        "avg_symptom_score": avg_symptom_score,
         "avg_performance": avg_performance,
     }
 
@@ -266,9 +266,9 @@ def fetch_daily(user_id: str, date_str: str) -> dict:
     if workout_quality:
         performance = workout_quality[0].get("performance_score")
 
-    fatigue = None
+    symptom_score = None
     if wellness:
-        fatigue = wellness[0].get("fatigue_score")
+        symptom_score = wellness[0].get("symptom_score")
 
     return {
         "date": date_str,
@@ -290,7 +290,7 @@ def fetch_daily(user_id: str, date_str: str) -> dict:
         "exercises": exercises,
         "workout": workout_info,
         "performance": performance,
-        "fatigue": fatigue,
+        "symptom_score": symptom_score,
     }
 
 
@@ -347,8 +347,8 @@ def fetch_all_logs(user_id: str, range_str: str = "30d", type_filter: str = "all
         }),
         "wellness": ("wellness", lambda r: {
             "id": r["id"], "timestamp": r["timestamp"], "type": "wellness",
-            "description": "Fatigue Score",
-            "value": f"{r.get('fatigue_score', 0)}/10",
+            "description": r.get("symptom") or "Symptom Score",
+            "value": f"{r.get('symptom_score', 0)}/10",
             "protein": None, "carbs": None, "fat": None,
         }),
     }

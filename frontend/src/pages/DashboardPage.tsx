@@ -169,8 +169,8 @@ export default function DashboardPage() {
             goalValue={goals.daily_protein_g ?? undefined}
           />
           <KPICard
-            title="Avg Fatigue" value={kpis.avg_fatigue ?? '—'} unit="/10" icon={Zap} accentColor="blue"
-            trendData={wellness.slice(-14).map(w => ({ value: w.fatigue_score }))}
+            title="Avg Symptom Score" value={kpis.avg_symptom_score ?? '—'} unit="/10" icon={Zap} accentColor="blue"
+            trendData={wellness.slice(-14).map(w => ({ value: w.symptom_score }))}
           />
           <KPICard
             title="Avg Performance" value={kpis.avg_performance ?? '—'} unit="/10" icon={Activity} accentColor="green"

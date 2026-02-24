@@ -67,7 +67,9 @@ def format_confirmation(log_type: str, data: dict) -> str:
     elif log_type == "bodyweight":
         return f"Bodyweight logged:\n  {data.get('weight_lbs', 'N/A')} lbs"
     elif log_type == "wellness":
-        return f"Wellness logged:\n  Fatigue: {data.get('fatigue_score', 'N/A')}/10"
+        symptom_text = data.get('symptom')
+        symptom_line = f"\n  Symptom: {symptom_text}" if symptom_text else ""
+        return f"Wellness logged:\n  Symptom Score: {data.get('symptom_score', 'N/A')}/10{symptom_line}"
     elif log_type == "workout_quality":
         return f"Workout quality logged:\n  Performance: {data.get('performance_score', 'N/A')}/10"
     else:
@@ -117,6 +119,21 @@ async def login_command(update: Update, context) -> None:
     )
 
 
+async def symptoms_command(update: Update, context) -> None:
+    """Toggle symptoms tracking mode on/off."""
+    user_id = str(update.effective_user.id)
+    client = get_client()
+
+    row = client.table("users").select("symptoms_mode").eq("telegram_id", user_id).execute()
+    current = row.data[0].get("symptoms_mode", False) if row.data else False
+    new_val = not current
+
+    client.table("users").update({"symptoms_mode": new_val}).eq("telegram_id", user_id).execute()
+
+    status = "enabled" if new_val else "disabled"
+    await update.message.reply_text(f"Symptom tracking {status}.")
+
+
 async def handle_message(update: Update, context) -> None:
     """Handle incoming text messages."""
     user_id = str(update.effective_user.id)
@@ -125,8 +142,13 @@ async def handle_message(update: Update, context) -> None:
     message_text = update.message.text
     await update.message.reply_text("Processing...")
 
+    # Check if user has symptoms_mode enabled
+    client = get_client()
+    user_row = client.table("users").select("symptoms_mode").eq("telegram_id", user_id).execute()
+    symptoms_mode = user_row.data[0].get("symptoms_mode", False) if user_row.data else False
+
     # Send to Claude
-    success, logs, raw_dicts, error = await extract_log(message_text)
+    success, logs, raw_dicts, error = await extract_log(message_text, symptoms_mode=symptoms_mode)
 
     if not success:
         await update.message.reply_text(f"Error: {error}")
@@ -215,6 +237,7 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("login", login_command))
     app.add_handler(CommandHandler("feedback", feedback_command))
+    app.add_handler(CommandHandler("symptoms", symptoms_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(handle_callback))
 

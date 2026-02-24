@@ -49,7 +49,7 @@ async def get_weight(range: str = Query("30d", pattern=r"^\d+d$"), user: dict = 
 async def get_wellness(range: str = Query("7d", pattern=r"^\d+d$"), user: dict = Depends(get_current_user)):
     data = fetch_wellness(user["telegram_id"], range)
     return [
-        {"date": row["timestamp"][:10], "fatigue_score": row["fatigue_score"]}
+        {"date": row["timestamp"][:10], "symptom_score": row["symptom_score"], "symptom": row.get("symptom")}
         for row in data
     ]
 
@@ -202,11 +202,11 @@ async def get_workout_summary(
 
 # ── Editable fields per log type ──────────────────────────────────
 _LOG_TYPE_CONFIG: dict[str, tuple[str, set[str]]] = {
-    "meal":     ("meals",     {"description", "calories", "protein_g", "carbs_g", "fat_g"}),
-    "workout":  ("workouts",  {"description", "estimated_calories_burned"}),
-    "exercise": ("exercises", {"exercise_name", "sets", "reps", "weight_lbs", "notes"}),
-    "weight":   ("bodyweight", {"weight_lbs"}),
-    "wellness": ("wellness",  {"fatigue_score"}),
+    "meal":     ("meals",     {"description", "calories", "protein_g", "carbs_g", "fat_g", "timestamp"}),
+    "workout":  ("workouts",  {"description", "estimated_calories_burned", "timestamp"}),
+    "exercise": ("exercises", {"exercise_name", "sets", "reps", "weight_lbs", "notes", "timestamp"}),
+    "weight":   ("bodyweight", {"weight_lbs", "timestamp"}),
+    "wellness": ("wellness",  {"symptom_score", "symptom", "timestamp"}),
 }
 
 

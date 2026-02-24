@@ -122,19 +122,21 @@ If the message does not clearly fit one of these types, return:
 - Assume pounds unless explicitly stated otherwise.
 - Must be realistic human weight.
 
-### 4. Wellness (Fatigue)
+### 4. Wellness (Symptom)
 
 ```json
 {
   "type": "wellness",
-  "fatigue_score": 7
+  "symptom_score": 7,
+  "symptom": "headache"
 }
 ```
 
 **Rules:**
 
-- Score must be 0–10.
+- `symptom_score` must be 0–10.
 - Extract explicit numeric rating.
+- `symptom` is an optional free-text description of the symptom (e.g., "headache", "sore throat", "fatigue", "nausea"). Include it only if the user mentions a specific symptom.
 - If rating unclear, return `unknown` type.
 
 ### 5. Workout Quality
@@ -185,7 +187,7 @@ If the message does not clearly fit one of these types, return:
 
 **Bodyweight indicators:** weighed, scale, weight
 
-**Wellness indicators:** fatigue, tired, malaise, energy level with score
+**Wellness indicators:** fatigue, tired, malaise, energy level with score, symptom, headache, nausea, soreness
 
 **Workout quality indicators:** workout was 8/10, session felt 6, training felt strong 9/10
 
@@ -233,7 +235,7 @@ Never output extreme values unless clearly specified.
 
 If:
 
-- No numeric fatigue score present
+- No numeric symptom/fatigue score present
 - Weight cannot be extracted
 - Input is conversational only
 

@@ -72,7 +72,7 @@ def summarize_workout(workouts: list, exercises: list) -> str:
     return response.content[0].text.strip()
 
 
-async def extract_log(message: str) -> Tuple[bool, Optional[List[LogEntry]], Optional[List[dict]], Optional[str]]:
+async def extract_log(message: str, symptoms_mode: bool = False) -> Tuple[bool, Optional[List[LogEntry]], Optional[List[dict]], Optional[str]]:
     """Send a user message to Claude and extract structured log data.
 
     Returns:
@@ -82,6 +82,12 @@ async def extract_log(message: str) -> Tuple[bool, Optional[List[LogEntry]], Opt
     current_time = datetime.now(eastern).isoformat()
 
     user_message = f"Current date/time (US Eastern): {current_time}\n\nUser message: {message}"
+
+    if symptoms_mode:
+        user_message += (
+            "\n\nNote: The user has symptom tracking enabled. "
+            "If this is a wellness log, extract a `symptom` field (free-text description of the symptom) in addition to `symptom_score`."
+        )
 
     try:
         response = client.messages.create(

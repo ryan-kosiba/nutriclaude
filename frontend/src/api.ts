@@ -20,7 +20,7 @@ export interface KpiData {
   avg_daily_protein: number;
   current_weight: number | null;
   calorie_balance: number;
-  avg_fatigue: number | null;
+  avg_symptom_score: number | null;
   avg_performance: number | null;
 }
 
@@ -71,7 +71,7 @@ export interface DailyData {
   exercises: DailyExercise[];
   workout: { description: string; calories_burned: number; intensity: number | null } | null;
   performance: number | null;
-  fatigue: number | null;
+  symptom_score: number | null;
 }
 
 export interface ExerciseEntry {
@@ -114,7 +114,8 @@ export interface LogHistoryEntry {
 
 export interface WellnessEntry {
   date: string;
-  fatigue_score: number;
+  symptom_score: number;
+  symptom?: string | null;
 }
 
 export interface PerformanceEntry {

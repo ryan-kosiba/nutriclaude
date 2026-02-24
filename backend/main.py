@@ -26,12 +26,13 @@ async def lifespan(app_instance: FastAPI):
     token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     if token:
         from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
-        from bot import start_command, login_command, feedback_command, handle_message, handle_callback
+        from bot import start_command, login_command, feedback_command, symptoms_command, handle_message, handle_callback
 
         bot_app = Application.builder().token(token).build()
         bot_app.add_handler(CommandHandler("start", start_command))
         bot_app.add_handler(CommandHandler("login", login_command))
         bot_app.add_handler(CommandHandler("feedback", feedback_command))
+        bot_app.add_handler(CommandHandler("symptoms", symptoms_command))
         bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
         bot_app.add_handler(CallbackQueryHandler(handle_callback))
 
